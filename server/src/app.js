@@ -1,7 +1,14 @@
 import express from 'express'
 import cors from 'cors'
+import multer from 'multer'
+import { rateLimit } from 'express-rate-limit'
+import { join } from 'path'
 import { env } from './config/env.js'
 import { postsRouter } from './routes/posts.js'
+import * as categories from './controllers/categoriesController.js'
+import * as comments from './controllers/commentsController.js'
+import * as authController from './controllers/authController.js'
+import { authMiddleware, softAuthMiddleware } from './middlewares/authMiddleware.js'
 import { errorHandler } from './middlewares/errorHandler.js'
 
 export function createApp() {
@@ -9,12 +16,63 @@ export function createApp() {
 
   app.use(cors({ origin: env.clientOrigin }))
   app.use(express.json())
+  app.use('/uploads', express.static(join(env.databasePath, '../../uploads')))
+
+  // Image Upload Configuration
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, join(env.databasePath, '../../uploads'))
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
+      cb(null, uniqueSuffix + '-' + file.originalname)
+    }
+  })
+  const upload = multer({ storage })
+
+  // Rate Limiters
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+  })
+
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 login attempts per windowMs
+    message: { message: 'Too many login attempts, please try again after 15 minutes' }
+  })
+
+  const commentLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10, // Limit each IP to 10 comments per hour
+    message: { message: 'Too many comments from this IP, please try again after an hour' }
+  })
+
+  app.use('/api/', apiLimiter)
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true })
   })
 
+  // Auth routes
+  app.post('/api/auth/login', loginLimiter, authController.login)
+  app.get('/api/auth/check', authMiddleware, authController.check)
+
+  // Upload route
+  app.post('/api/upload', authMiddleware, upload.single('image'), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' })
+    const url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
+    res.json({ url })
+  })
+
+  app.get('/api/categories', softAuthMiddleware, categories.list)
+
   app.use('/api/posts', postsRouter)
+
+  app.get('/api/posts/:postId/comments', comments.list)
+  app.post('/api/posts/:postId/comments', commentLimiter, comments.create)
+  app.delete('/api/comments/:id', authMiddleware, comments.remove)
 
   app.use((_req, res) => {
     res.status(404).json({ message: 'Not Found' })

@@ -5,3 +5,8 @@ dist
 .env
 .env.local
 .env.*.local
+
+# SQLite（WAL 模式会生成附加文件）
+server/data/*.db
+server/data/*.db-wal
+server/data/*.db-shm
