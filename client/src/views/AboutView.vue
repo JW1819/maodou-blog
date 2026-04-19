@@ -6,7 +6,7 @@
           <!-- 优先展示真实头像图片，如果需要可以替换 src -->
           <el-avatar 
             :size="80" 
-            src="src/assets/image/user.png" 
+            src="/image/user.png" 
             class="profile-avatar-img"
           >
             Nic
