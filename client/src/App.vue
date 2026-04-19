@@ -145,7 +145,7 @@ onMounted(async () => {
 
     <footer class="footer">
       <div class="footer__inner">
-        <p class="footer__copy">© {{ year }} 毛豆博客 · Vue 3 + Express + SQLite</p>
+        <p class="footer__copy">© {{ year }} 毛豆博客</p>
         <div class="footer__links">
           <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
           <span class="footer__dot" aria-hidden="true">·</span>

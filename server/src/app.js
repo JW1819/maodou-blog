@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import multer from 'multer'
 import { rateLimit } from 'express-rate-limit'
 import { join } from 'path'
@@ -14,6 +15,9 @@ import { errorHandler } from './middlewares/errorHandler.js'
 export function createApp() {
   const app = express()
 
+  app.use(helmet({
+    contentSecurityPolicy: false, // 允许前端加载外部资源（如 CDN）
+  }))
   app.use(cors({ origin: env.clientOrigin }))
   app.use(express.json())
   app.use('/uploads', express.static(join(env.databasePath, '../../uploads')))

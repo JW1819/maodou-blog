@@ -4,6 +4,8 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css' // Or any other style
+import { Plus } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiGet, apiDelete, apiPost } from '../api/http'
 import { formatDate } from '../utils/formatDate'
 import { auth } from '../stores/auth'
@@ -55,6 +57,7 @@ async function load() {
     loadComments()
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
+    ElMessage.error('加载文章失败')
   } finally {
     loading.value = false
   }
@@ -84,32 +87,50 @@ async function submitComment() {
     comments.value.push(newComment)
     commentForm.author = ''
     commentForm.content = ''
+    ElMessage.success('评论发表成功')
   } catch (e) {
-    commentForm.error = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof Error ? e.message : String(e)
+    commentForm.error = msg
+    ElMessage.error('发表失败：' + msg)
   } finally {
     commentForm.submitting = false
   }
 }
 
 async function deleteComment(id) {
-  if (!confirm('确定要删除这条评论吗？')) return
   try {
+    await ElMessageBox.confirm('确定要删除这条评论吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
     await apiDelete(`/api/comments/${id}`)
     comments.value = comments.value.filter(c => c.id !== id)
+    ElMessage.success('评论已删除')
   } catch (e) {
-    alert('删除评论失败：' + (e instanceof Error ? e.message : String(e)))
+    if (e !== 'cancel') {
+      ElMessage.error('删除失败：' + (e instanceof Error ? e.message : String(e)))
+    }
   }
 }
 
 async function onDelete() {
-  if (!confirm('确定要删除这篇文章吗？')) return
-  deleting.value = true
   try {
+    await ElMessageBox.confirm('确定要永久删除这篇文章吗？', '警告', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'danger',
+    })
+    
+    deleting.value = true
     await apiDelete(`/api/posts/${post.value.id}`)
-    categoriesStore.fetch() // Refresh global categories list
+    categoriesStore.fetch()
+    ElMessage.success('文章已删除')
     router.push('/')
   } catch (e) {
-    alert('删除失败：' + (e instanceof Error ? e.message : String(e)))
+    if (e !== 'cancel') {
+      ElMessage.error('删除失败：' + (e instanceof Error ? e.message : String(e)))
+    }
   } finally {
     deleting.value = false
   }

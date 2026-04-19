@@ -1,6 +1,8 @@
 <script setup>
 import { reactive, ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Plus } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { apiPost, apiGet, apiPatch } from '../api/http'
 import { categoriesStore } from '../stores/categories'
 
@@ -9,34 +11,38 @@ const route = useRoute()
 const isEdit = computed(() => route.name === 'edit')
 const postId = computed(() => route.params.id)
 
-const title = ref('')
-const excerpt = ref('')
-const content = ref('')
-const category = ref('')
-const tags = ref('')
-const status = ref('published')
-const submitting = ref(false)
-const loading = ref(false)
-const formError = ref('')
-const fieldErrors = reactive({
+const formRef = ref(null)
+const form = reactive({
   title: '',
   excerpt: '',
   content: '',
+  category: '',
+  tags: '',
+  status: 'published',
 })
+
+const rules = {
+  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+  excerpt: [{ required: true, message: '请输入摘要', trigger: 'blur' }],
+  content: [{ required: true, message: '请输入正文内容', trigger: 'blur' }],
+}
+
+const submitting = ref(false)
+const loading = ref(false)
 
 async function loadPost() {
   if (!isEdit.value) return
   loading.value = true
   try {
     const post = await apiGet(`/api/posts/${postId.value}`)
-    title.value = post.title
-    excerpt.value = post.excerpt
-    content.value = post.content
-    category.value = post.category
-    tags.value = Array.isArray(post.tags) ? post.tags.join(', ') : ''
-    status.value = post.status || 'published'
+    form.title = post.title
+    form.excerpt = post.excerpt
+    form.content = post.content
+    form.category = post.category
+    form.tags = Array.isArray(post.tags) ? post.tags.join(', ') : ''
+    form.status = post.status || 'published'
   } catch (e) {
-    formError.value = '获取文章失败：' + (e instanceof Error ? e.message : String(e))
+    ElMessage.error('获取文章失败：' + (e instanceof Error ? e.message : String(e)))
   } finally {
     loading.value = false
   }
@@ -44,58 +50,39 @@ async function loadPost() {
 
 onMounted(loadPost)
 
-function clearFieldErrors() {
-  fieldErrors.title = ''
-  fieldErrors.excerpt = ''
-  fieldErrors.content = ''
-}
-
-function validate() {
-  clearFieldErrors()
-  let ok = true
-  if (!title.value.trim()) {
-    fieldErrors.title = '标题不能为空'
-    ok = false
-  }
-  if (!excerpt.value.trim()) {
-    fieldErrors.excerpt = '摘要不能为空'
-    ok = false
-  }
-  if (!content.value.trim()) {
-    fieldErrors.content = '正文不能为空'
-    ok = false
-  }
-  return ok
-}
-
 async function onSubmit() {
-  formError.value = ''
-  if (!validate()) {
-    return
-  }
-  submitting.value = true
-  try {
-    const data = {
-      title: title.value.trim(),
-      excerpt: excerpt.value.trim(),
-      content: content.value.trim(),
-      category: category.value.trim(),
-      tags: tags.value.trim(),
-      status: status.value,
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    submitting.value = true
+    try {
+      const data = {
+        ...form,
+        title: form.title.trim(),
+        excerpt: form.excerpt.trim(),
+        content: form.content.trim(),
+        category: form.category.trim(),
+        tags: form.tags.trim(),
+      }
+      
+      let post
+      if (isEdit.value) {
+        post = await apiPatch(`/api/posts/${postId.value}`, data)
+      } else {
+        post = await apiPost('/api/posts', data)
+      }
+      
+      categoriesStore.fetch()
+      ElMessage.success(isEdit.value ? '文章已更新' : '文章已发布')
+      await router.push({ name: 'post', params: { id: post.id } })
+    } catch (e) {
+      ElMessage.error('保存失败：' + (e instanceof Error ? e.message : String(e)))
+    } finally {
+      submitting.value = false
     }
-    let post
-    if (isEdit.value) {
-      post = await apiPatch(`/api/posts/${postId.value}`, data)
-    } else {
-      post = await apiPost('/api/posts', data)
-    }
-    categoriesStore.fetch() // Refresh global categories list
-    await router.push({ name: 'post', params: { id: post.id } })
-  } catch (e) {
-    formError.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    submitting.value = false
-  }
+  })
 }
 
 async function onImageUpload(e) {
@@ -105,6 +92,11 @@ async function onImageUpload(e) {
   const formData = new FormData()
   formData.append('image', file)
   
+  const loadingMsg = ElMessage.info({
+    message: '正在上传图片...',
+    duration: 0
+  })
+
   try {
     const res = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/upload`, {
       method: 'POST',
@@ -114,13 +106,16 @@ async function onImageUpload(e) {
       body: formData
     })
     const data = await res.json()
+    loadingMsg.close()
+
     if (!res.ok) throw new Error(data.message || 'Upload failed')
     
-    // Insert markdown image tag at current cursor or end of content
     const imgTag = `\n![${file.name}](${data.url})\n`
-    content.value += imgTag
+    form.content += imgTag
+    ElMessage.success('图片上传成功')
   } catch (e) {
-    alert('图片上传失败：' + (e instanceof Error ? e.message : String(e)))
+    loadingMsg.close()
+    ElMessage.error('图片上传失败：' + (e instanceof Error ? e.message : String(e)))
   } finally {
     e.target.value = ''
   }
@@ -129,237 +124,161 @@ async function onImageUpload(e) {
 
 <template>
   <div class="write">
-    <h1 class="write__title">{{ isEdit ? '编辑文章' : '写文章' }}</h1>
-    <p class="write__hint">标题、摘要、正文均需填写；正文支持 Markdown 语法。</p>
-
-    <div v-if="loading" class="state state--muted state--loading">
-      <span class="ui-spinner" aria-hidden="true" />
-      <span>加载中…</span>
+    <div class="write-header">
+      <h1 class="write__title">{{ isEdit ? '编辑文章' : '写文章' }}</h1>
+      <p class="write__hint">正文支持 Markdown 语法，实时保存，发布即见。</p>
     </div>
 
-    <form v-else class="form" @submit.prevent="onSubmit" novalidate>
-      <label class="field">
-        <span class="field__label">标题</span>
-        <input
-          v-model="title"
-          class="field__input"
-          :class="{ 'field__input--invalid': fieldErrors.title }"
-          type="text"
-          name="title"
-          autocomplete="off"
-          aria-required="true"
-        />
-        <p v-if="fieldErrors.title" class="form__error" role="alert">{{ fieldErrors.title }}</p>
-      </label>
+    <el-skeleton :loading="loading" animated>
+      <template #template>
+        <el-skeleton-item variant="h1" style="width: 50%; margin-bottom: 20px" />
+        <el-skeleton-item variant="text" style="margin-bottom: 10px" />
+        <el-skeleton-item variant="text" style="margin-bottom: 10px" />
+        <el-skeleton-item variant="rect" style="height: 300px" />
+      </template>
+      
+      <template #default>
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-position="top"
+          class="write-form"
+        >
+          <el-row :gutter="20">
+            <el-col :span="16">
+              <el-form-item label="文章标题" prop="title">
+                <el-input v-model="form.title" placeholder="给你的文章起个吸引人的标题..." size="large" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="分类" prop="category">
+                <el-input v-model="form.category" placeholder="例如：技术、随笔" size="large" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-      <label class="field">
-        <span class="field__label">分类</span>
-        <input
-          v-model="category"
-          class="field__input"
-          type="text"
-          name="category"
-          placeholder="例如：技术、生活"
-          autocomplete="off"
-        />
-      </label>
+          <el-form-item label="标签 (用逗号隔开)" prop="tags">
+            <el-input v-model="form.tags" placeholder="例如：Vue, Node.js, 生活" />
+          </el-form-item>
 
-      <label class="field">
-        <span class="field__label">标签</span>
-        <input
-          v-model="tags"
-          class="field__input"
-          type="text"
-          name="tags"
-          placeholder="多个标签用英文逗号隔开，例如：Vue,前端"
-          autocomplete="off"
-        />
-      </label>
+          <el-form-item label="内容摘要" prop="excerpt">
+            <el-input
+              v-model="form.excerpt"
+              type="textarea"
+              :rows="2"
+              placeholder="简要介绍一下文章内容..."
+            />
+          </el-form-item>
 
-      <label class="field">
-        <span class="field__label">摘要</span>
-        <input
-          v-model="excerpt"
-          class="field__input"
-          :class="{ 'field__input--invalid': fieldErrors.excerpt }"
-          type="text"
-          name="excerpt"
-          autocomplete="off"
-          aria-required="true"
-        />
-        <p v-if="fieldErrors.excerpt" class="form__error" role="alert">{{ fieldErrors.excerpt }}</p>
-      </label>
+          <el-form-item prop="content">
+            <template #label>
+              <div class="content-label">
+                <span>正文内容 (Markdown)</span>
+                <el-button type="primary" link :icon="Plus" @click="$refs.fileInput.click()">
+                  插入图片
+                </el-button>
+                <input ref="fileInput" type="file" @change="onImageUpload" accept="image/*" hidden />
+              </div>
+            </template>
+            <el-input
+              v-model="form.content"
+              type="textarea"
+              :rows="15"
+              placeholder="开始你的创作..."
+              class="content-textarea"
+            />
+          </el-form-item>
 
-      <div class="field">
-        <span class="field__label">状态</span>
-        <div class="field__radio-group">
-          <label class="field__radio">
-            <input type="radio" v-model="status" value="published" />
-            发布
-          </label>
-          <label class="field__radio">
-            <input type="radio" v-model="status" value="draft" />
-            草稿
-          </label>
-        </div>
-      </div>
-
-      <label class="field">
-        <div class="field__label-row">
-          <span class="field__label">正文 (Markdown)</span>
-          <label class="btn-upload">
-            插入图片
-            <input type="file" @change="onImageUpload" accept="image/*" hidden />
-          </label>
-        </div>
-        <textarea
-          v-model="content"
-          class="field__textarea"
-          :class="{ 'field__input--invalid': fieldErrors.content }"
-          name="content"
-          rows="12"
-          aria-required="true"
-        />
-        <p v-if="fieldErrors.content" class="form__error" role="alert">{{ fieldErrors.content }}</p>
-      </label>
-
-      <p v-if="formError" class="form__error form__error--request" role="alert">请求失败：{{ formError }}</p>
-
-      <div class="form__actions">
-        <button class="btn btn--primary" type="submit" :disabled="submitting">
-          {{ submitting ? '提交中…' : (isEdit ? '保存更改' : '发布') }}
-        </button>
-        <button class="btn btn--secondary" type="button" @click="router.back()">取消</button>
-      </div>
-    </form>
+          <div class="form-footer">
+            <div class="status-selector">
+              <span class="status-label">发布状态：</span>
+              <el-radio-group v-model="form.status">
+                <el-radio-button label="published">立即发布</el-radio-button>
+                <el-radio-button label="draft">保存草稿</el-radio-button>
+              </el-radio-group>
+            </div>
+            
+            <div class="actions">
+              <el-button @click="router.back()">取消</el-button>
+              <el-button type="primary" :loading="submitting" @click="onSubmit" size="large">
+                {{ isEdit ? '更新文章' : '发布文章' }}
+              </el-button>
+            </div>
+          </div>
+        </el-form>
+      </template>
+    </el-skeleton>
   </div>
 </template>
 
 <style scoped>
+.write {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.write-header {
+  margin-bottom: 2rem;
+}
+
 .write__title {
   margin: 0 0 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.75rem;
+  font-weight: 700;
   color: var(--text);
 }
 
 .write__hint {
-  margin: 0 0 1.75rem;
+  margin: 0;
   font-size: 0.9375rem;
   color: var(--text-muted);
 }
 
-.form {
-  max-width: 36rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+.write-form {
+  background: var(--surface);
+  padding: 2rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.field__label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.field__label-row {
+.content-label {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.btn-upload {
-  font-size: 0.75rem;
-  color: var(--accent);
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.field__radio-group {
-  display: flex;
-  gap: 1.5rem;
-  padding: 0.5rem 0;
-}
-
-.field__radio {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  cursor: pointer;
-}
-
-.field__radio input {
-  cursor: pointer;
-}
-
-.field__input,
-.field__textarea {
-  font: inherit;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.6rem 0.75rem;
   width: 100%;
 }
 
-.field__textarea {
-  resize: vertical;
-  min-height: 12rem;
-  line-height: 1.55;
+.content-textarea :deep(.el-textarea__inner) {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 1rem;
+  line-height: 1.6;
+  padding: 1rem;
 }
 
-.field__input:focus,
-.field__textarea:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  outline-offset: 1px;
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-}
-
-.field__input--invalid,
-.field__textarea.field__input--invalid {
-  border-color: color-mix(in srgb, #b42318 55%, var(--border));
-}
-
-.form__error {
-  margin: 0;
-  font-size: 0.875rem;
-  color: #b42318;
-}
-
-.form__actions {
+.form-footer {
+  margin-top: 2.5rem;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.status-selector {
+  display: flex;
+  align-items: center;
   gap: 1rem;
 }
 
-.btn {
-  padding: 0.6rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
+.status-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
 }
 
-.btn--primary {
-  background: var(--accent);
-  color: white;
-}
-
-.btn--secondary {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.actions {
+  display: flex;
+  gap: 1rem;
 }
 </style>

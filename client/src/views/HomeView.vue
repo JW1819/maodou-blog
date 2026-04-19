@@ -1,11 +1,12 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { apiGet } from '../api/http'
 import { formatDate } from '../utils/formatDate'
 import { auth } from '../stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const posts = ref([])
 const pagination = ref({ page: 1, totalPages: 1, total: 0 })
 const loading = ref(true)
@@ -66,6 +67,13 @@ async function loadPosts() {
   } finally {
     loading.value = false
   }
+}
+
+function handlePageChange(page) {
+  router.push({ 
+    query: { ...route.query, page }, 
+    hash: '#posts' 
+  })
 }
 
 watch(
@@ -149,22 +157,16 @@ watch(
           </li>
         </ul>
 
-        <nav v-if="pagination.totalPages > 1" class="pagination" aria-label="分页导航">
-          <RouterLink 
-            v-if="pagination.page > 1"
-            :to="{ query: { ...route.query, page: pagination.page - 1 }, hash: '#posts' }"
-            class="pagination__link"
-          >
-            上一页
-          </RouterLink>
-          <span class="pagination__info">第 {{ pagination.page }} 页 / 共 {{ pagination.totalPages }} 页</span>
-          <RouterLink 
-            v-if="pagination.page < pagination.totalPages"
-            :to="{ query: { ...route.query, page: pagination.page + 1 }, hash: '#posts' }"
-            class="pagination__link"
-          >
-            下一页
-          </RouterLink>
+        <nav v-if="pagination.totalPages > 1" class="pagination-container" aria-label="分页导航">
+          <el-pagination
+            v-model:current-page="pagination.page"
+            :page-count="pagination.totalPages"
+            :total="pagination.total"
+            :page-size="10"
+            background
+            layout="prev, pager, next"
+            @current-change="handlePageChange"
+          />
         </nav>
       </div>
     </section>
@@ -359,23 +361,18 @@ watch(
   text-decoration: underline;
 }
 
-.pagination {
-  margin-top: 3rem;
+.pagination-container {
+  margin-top: 4rem;
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 1.5rem;
 }
 
-.pagination__link {
-  font-size: 0.875rem;
+:deep(.el-pagination.is-background .el-pager li:not(.is-active):hover) {
   color: var(--accent);
-  text-decoration: none;
 }
 
-.pagination__info {
-  font-size: 0.875rem;
-  color: var(--text-muted);
+:deep(.el-pagination.is-background .el-pager li.is-active) {
+  background-color: var(--accent);
 }
 
 .state {

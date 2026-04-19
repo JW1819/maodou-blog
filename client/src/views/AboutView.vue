@@ -1,44 +1,101 @@
 <template>
   <div class="about">
-    <h1 class="about__title">关于</h1>
-    <p class="about__p">
-      毛豆博客是全栈练习项目：前端为 Vue 3 + Vite，后端为 Express，数据存放在 SQLite（Node 内置
-      <code class="code">node:sqlite</code>）。你可以从导航进入首页浏览文章、查看详情，或使用「写文章」发布新内容。
-    </p>
-    <p class="about__p">
-      接口前缀为 <code class="code">/api</code>：列表 <code class="code">GET /api/posts</code>、详情
-      <code class="code">GET /api/posts/:id</code>、发布 <code class="code">POST /api/posts</code>。
-    </p>
+    <el-card shadow="never" class="about-card">
+      <div class="profile-header">
+        <div class="avatar-wrapper">
+          <!-- 优先展示真实头像图片，如果需要可以替换 src -->
+          <el-avatar 
+            :size="80" 
+            src="src/assets/image/user.png" 
+            class="profile-avatar-img"
+          >
+            Nic
+          </el-avatar>
+        </div>
+        <div class="profile-info">
+          <h1 class="profile-name">Nic</h1>
+          <p class="profile-title">软件开发</p>
+        </div>
+      </div>
+      
+      <el-divider />
+      
+      <div class="profile-content">
+        <p class="profile-desc">记录思考、成长与生活日常</p>
+      </div>
+    </el-card>
   </div>
 </template>
 
 <style scoped>
-.about__title {
-  margin: 0 0 1rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text);
+.about {
+  max-width: 600px;
+  margin: 2rem auto;
 }
 
-.about__p {
-  margin: 0 0 1rem;
-  max-width: 40rem;
-  font-size: 1rem;
-  line-height: 1.65;
-  color: var(--text-muted);
-}
-
-.about__p:last-child {
-  margin-bottom: 0;
-}
-
-.code {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.88em;
-  padding: 0.12em 0.35em;
-  border-radius: 4px;
-  background: var(--surface);
+.about-card {
+  border-radius: var(--radius);
   border: 1px solid var(--border);
+  background: var(--surface);
+  transition: transform 0.3s ease;
+}
+
+.about-card:hover {
+  transform: translateY(-4px);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.avatar-wrapper {
+  padding: 4px;
+  border: 2px solid var(--accent-soft);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar-img {
+  background-color: var(--accent);
+  font-weight: bold;
+  font-size: 1.5rem;
+  color: white;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.profile-name {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
   color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.profile-title {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.profile-content {
+  padding: 0.5rem 0;
+}
+
+.profile-desc {
+  margin: 0;
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--text);
+  opacity: 0.9;
 }
 </style>
