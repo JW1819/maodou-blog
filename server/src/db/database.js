@@ -94,9 +94,11 @@ export async function initDatabase(databasePath) {
   db = new DatabaseSync(databasePath)
   db.exec(`PRAGMA journal_mode = WAL;`)
   
-  // 先创建基础表或确保结构，再执行 SCHEMA
-  ensureColumns(db)
+  // 【关键修复】：先执行 SCHEMA 创建表
   db.exec(SCHEMA)
+  
+  // 然后再检查并补全可能缺失的列（针对旧数据迁移）
+  ensureColumns(db)
   
   await ensureAdminUser(db)
 
