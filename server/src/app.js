@@ -17,10 +17,13 @@ export function createApp() {
 
   app.use(helmet({
     contentSecurityPolicy: false, // 允许前端加载外部资源（如 CDN）
+    crossOriginResourcePolicy: false, // 允许跨域请求静态资源
   }))
   app.use(cors({ origin: env.clientOrigin }))
   app.use(express.json())
-  app.use('/uploads', express.static(join(env.databasePath, '../../uploads')))
+  
+  // 为静态文件配置CORS
+  app.use('/uploads', cors({ origin: env.clientOrigin }), express.static(join(env.databasePath, '../../uploads')))
 
   // Image Upload Configuration
   const storage = multer.diskStorage({
@@ -66,7 +69,7 @@ export function createApp() {
   // Upload route
   app.post('/api/upload', authMiddleware, upload.single('image'), (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' })
-    const url = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
+    const url = `/uploads/${req.file.filename}`
     res.json({ url })
   })
 

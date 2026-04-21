@@ -1,7 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch, watchEffect, reactive, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css' // Or any other style
 import { Plus } from '@element-plus/icons-vue'
@@ -30,7 +29,7 @@ const commentForm = reactive({
 const renderedContent = computed(() => {
   const c = post.value?.content
   if (!c) return ''
-  return marked.parse(c)
+  return c
 })
 
 const readingTime = computed(() => {
