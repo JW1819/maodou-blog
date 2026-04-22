@@ -2,52 +2,86 @@ name: Deploy to Server
 
 on:
   push:
-    branches: [ main ]  # 触发分支，根据你的主分支名称调整
+    branches: [ main ]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. 检出代码
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. 设置Node.js环境
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22'  # 使用与你的项目匹配的Node.js版本
+          node-version: '22'
 
-      # 3. 构建前端
       - name: Build frontend
         run: |
           cd client
           npm install
           npm run build
 
-      # 4. 部署到服务器
-      - name: Deploy to maodou-blog-api
+      - name: Deploy to server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_KEY }}
-          port: ${{ secrets.SERVER_PORT }}  # 默认22
+          port: ${{ secrets.SERVER_PORT }}
+          script_stop: true
+          command_timeout: 120s
           script: |
-            # 进入项目目录
-            cd /var/www/maodou-blog/maodou-blog
-            
-            # 拉取最新代码
-            git pull
-            
-            # 更新后端依赖
-            cd server
-            npm install
-            
-            # 重启后端服务（假设使用PM2管理）
-            pm2 restart maodou-blog-api || pm2 start src/index.js --name maodou-blog-api
+            set -e
 
-      # 5. 上传前端构建产物到服务器
+            echo "=== Checking Node.js version ==="
+            node -v
+            NODE_MAJOR=$(node -p "process.versions.node.split('.')[0]" | tr -d '[:space:]')
+            NODE_MINOR=$(node -p "process.versions.node.split('.')[1]" | tr -d '[:space:]')
+            if [ "$NODE_MAJOR" -lt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 5 ]; }; then
+              echo "ERROR: Node.js >= 22.5 is required for node:sqlite, got $(node -v)"
+              exit 1
+            fi
+
+            echo "=== Updating code ==="
+            cd /var/www/maodou-blog/maodou-blog
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Installing server dependencies ==="
+            cd /var/www/maodou-blog/maodou-blog/server
+            npm install
+
+            echo "=== Creating log directory ==="
+            mkdir -p /var/www/maodou-blog/logs
+
+            echo "=== Stopping old process ==="
+            pm2 delete maodou-blog-api 2>/dev/null || true
+
+            echo "=== Starting server with ecosystem config ==="
+            cd /var/www/maodou-blog/maodou-blog
+            pm2 start ecosystem.config.cjs
+            pm2 save
+
+            echo "=== Waiting for server to start ==="
+            sleep 5
+
+            echo "=== Health check ==="
+            HEALTH=$(curl -s http://localhost:3000/api/health || echo "failed")
+            echo "Health response: $HEALTH"
+
+            if echo "$HEALTH" | grep -q '"ok":true'; then
+              echo "Server is healthy"
+              echo "Registered routes:"
+              echo "$HEALTH" | grep -o '"GET /api/[^"]*\|"POST /api/[^"]*\|"DELETE /api/[^"]*' || true
+            else
+              echo "Health check failed, checking logs..."
+              pm2 logs maodou-blog-api --lines 50 --nostream
+              exit 1
+            fi
+
+            echo "=== Deployment successful ==="
+
       - name: Upload frontend build
         uses: appleboy/scp-action@master
         with:

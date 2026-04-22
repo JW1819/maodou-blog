@@ -21,7 +21,7 @@ function mapRow(row, { includeContent } = { includeContent: false }) {
  * @param {{ category?: string | null, tag?: string | null, search?: string | null, status?: string | null, page?: number, limit?: number }} [options]
  */
 export function listPosts(options = {}) {
-  const { category, tag, search, status, page = 1, limit = 10 } = options
+  const { category, tag, search, year, month, status, page = 1, limit = 10 } = options
   const offset = (page - 1) * limit
 
   let sql = `SELECT id, title, excerpt, category, tags, view_count, status, created_at FROM posts`
@@ -43,6 +43,17 @@ export function listPosts(options = {}) {
   if (search && search.trim()) {
     conditions.push(`(title LIKE ? OR content LIKE ?)`)
     params.push(`%${search.trim()}%`, `%${search.trim()}%`)
+  }
+
+  if (year) {
+    conditions.push(`strftime('%Y', created_at) = ?`)
+    params.push(String(year))
+  }
+
+  if (month) {
+    const m = String(month).padStart(2, '0')
+    conditions.push(`strftime('%m', created_at) = ?`)
+    params.push(m)
   }
 
   if (status) {

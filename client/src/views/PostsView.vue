@@ -25,16 +25,28 @@ const activeSearch = computed(() => {
   return typeof s === 'string' ? s.trim() : ''
 })
 
+const activeYear = computed(() => {
+  const y = route.query.year
+  return y ? String(y) : ''
+})
+
+const activeMonth = computed(() => {
+  const m = route.query.month
+  return m ? String(m) : ''
+})
+
 const activePage = computed(() => {
   const p = route.query.page
   return p ? Number(p) : 1
 })
 
-const hasFilter = computed(() => Boolean(activeCategory.value || activeSearch.value))
+const hasFilter = computed(() => Boolean(activeCategory.value || activeSearch.value || activeYear.value))
 
 const listTitle = computed(() => {
   if (activeCategory.value) return `分类「${activeCategory.value}」`
   if (activeSearch.value) return `搜索「${activeSearch.value}」`
+  if (activeYear.value && activeMonth.value) return `归档「${activeYear.value}年${activeMonth.value.padStart(2, '0')}月」`
+  if (activeYear.value) return `归档「${activeYear.value}年」`
   return '全部文章'
 })
 
@@ -42,6 +54,8 @@ function buildPostsUrl() {
   const params = new URLSearchParams()
   if (activeCategory.value) params.append('category', activeCategory.value)
   if (activeSearch.value) params.append('search', activeSearch.value)
+  if (activeYear.value) params.append('year', activeYear.value)
+  if (activeMonth.value) params.append('month', activeMonth.value)
   params.append('page', activePage.value)
   params.append('limit', PAGE_SIZE)
   return `/api/posts?${params.toString()}`
@@ -142,11 +156,13 @@ watch(
     <template v-else>
       <ul class="post-list" role="list">
         <li v-for="post in posts" :key="post.id" class="post-list__item">
-          <RouterLink :to="{ name: 'post', params: { id: post.id } }" class="post-row">
-            <span class="post-row__time">{{ formatDate(post.createdAt) }}</span>
-            <span class="post-row__title">{{ post.title }}</span>
-            <span v-if="post.category" class="post-row__cat">{{ post.category }}</span>
-          </RouterLink>
+          <div class="post-row">
+            <RouterLink :to="{ name: 'post', params: { id: post.id } }" class="post-row__link">
+              <span class="post-row__time">{{ formatDate(post.createdAt) }}</span>
+              <span class="post-row__title">{{ post.title }}</span>
+            </RouterLink>
+            <button v-if="post.category" class="post-row__cat" @click="selectCategory(post.category)">{{ post.category }}</button>
+          </div>
         </li>
       </ul>
 
@@ -261,13 +277,21 @@ watch(
   align-items: center;
   gap: 1rem;
   padding: 0.85rem 1.25rem;
-  text-decoration: none;
-  color: var(--text);
   transition: background 0.15s ease;
 }
 
 .post-row:hover {
   background: var(--accent-soft);
+}
+
+.post-row__link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: var(--text);
 }
 
 .post-row__time {
@@ -297,6 +321,13 @@ watch(
   border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.post-row__cat:hover {
+  filter: brightness(1.05);
 }
 
 .pagination-container {
@@ -370,6 +401,10 @@ watch(
     flex-wrap: wrap;
     gap: 0.35rem;
     padding: 0.85rem 1rem;
+  }
+
+  .post-row__link {
+    flex-wrap: wrap;
   }
 
   .post-row__time {

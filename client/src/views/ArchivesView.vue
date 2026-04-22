@@ -49,7 +49,7 @@ onMounted(async () => {
 
     <ul v-else class="archive-list" role="list">
       <li v-for="group in archives" :key="group.year + group.month" class="archive-card">
-        <RouterLink class="archive-card__link" :to="{ path: '/posts', query: { search: `${group.year}年${group.month}月` } }">
+        <RouterLink class="archive-card__link" :to="{ path: '/posts', query: { year: group.year, month: group.month } }">
           <div class="archive-card__date">
             <span class="archive-card__year">{{ group.year }}</span>
             <span class="archive-card__month">{{ group.month }}月</span>

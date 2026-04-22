@@ -58,11 +58,13 @@ onMounted(async () => {
 
       <ul v-else class="recent__list" role="list">
         <li v-for="post in recentPosts" :key="post.id" class="recent__item">
-          <RouterLink :to="{ name: 'post', params: { id: post.id } }" class="recent-row">
-            <span class="recent-row__time">{{ formatDate(post.createdAt) }}</span>
-            <span class="recent-row__title">{{ post.title }}</span>
-            <span v-if="post.category" class="recent-row__cat">{{ post.category }}</span>
-          </RouterLink>
+          <div class="recent-row">
+            <RouterLink :to="{ name: 'post', params: { id: post.id } }" class="recent-row__link">
+              <span class="recent-row__time">{{ formatDate(post.createdAt) }}</span>
+              <span class="recent-row__title">{{ post.title }}</span>
+            </RouterLink>
+            <RouterLink v-if="post.category" class="recent-row__cat" :to="{ path: '/posts', query: { category: post.category } }">{{ post.category }}</RouterLink>
+          </div>
         </li>
       </ul>
 
@@ -193,14 +195,22 @@ onMounted(async () => {
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 0.25rem;
-  text-decoration: none;
-  color: var(--text);
   transition: background 0.15s ease;
 }
 
 .recent-row:hover {
   background: var(--accent-soft);
   border-radius: 6px;
+}
+
+.recent-row__link {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+  text-decoration: none;
+  color: var(--text);
 }
 
 .recent-row__time {
@@ -230,6 +240,11 @@ onMounted(async () => {
   border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent);
+  text-decoration: none;
+}
+
+.recent-row__cat:hover {
+  filter: brightness(1.05);
 }
 
 .recent__view-all {
@@ -282,6 +297,10 @@ onMounted(async () => {
   .recent-row {
     flex-wrap: wrap;
     gap: 0.35rem;
+  }
+
+  .recent-row__link {
+    flex-wrap: wrap;
   }
 
   .recent-row__time {

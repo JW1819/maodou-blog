@@ -1,14 +1,16 @@
 import * as postsRepo from '../models/postRepository.js'
 
 export function list(req, res) {
-  const { category, tag, search, page, limit } = req.query || {}
+  const { category, tag, search, year, month, page, limit } = req.query || {}
   const isAdmin = !!req.user
-  
+
   const result = postsRepo.listPosts({
     category: Array.isArray(category) ? category[0] : category,
     tag: Array.isArray(tag) ? tag[0] : tag,
     search: Array.isArray(search) ? search[0] : search,
-    status: isAdmin ? null : 'published', // Public users only see published
+    year: year ? Number(year) : null,
+    month: month ? Number(month) : null,
+    status: isAdmin ? null : 'published',
     page: page ? Number(page) : 1,
     limit: limit ? Number(limit) : 10
   })

@@ -66,7 +66,18 @@ export function createApp() {
   app.use('/api/', apiLimiter)
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true })
+    const routes = []
+    app._router.stack.forEach((layer) => {
+      if (layer.route) {
+        const methods = Object.keys(layer.route.methods).join(',').toUpperCase()
+        routes.push(`${methods} ${layer.route.path}`)
+      }
+    })
+    res.json({
+      ok: true,
+      timestamp: new Date().toISOString(),
+      routes,
+    })
   })
 
   // Auth routes
