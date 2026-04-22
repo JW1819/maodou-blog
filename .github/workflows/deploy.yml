@@ -55,6 +55,6 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-          source: 'client/dist/*'
-          target: '/var/www/maodou-blog/maodou-blog/client/dist/'
+          source: 'client/dist'
+          target: '/var/www/maodou-blog/maodou-blog/client/'
           strip_components: 1
