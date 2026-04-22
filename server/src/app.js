@@ -8,6 +8,7 @@ import { env } from './config/env.js'
 import { postsRouter } from './routes/posts.js'
 import * as categories from './controllers/categoriesController.js'
 import * as comments from './controllers/commentsController.js'
+import * as guestbook from './controllers/guestbookController.js'
 import * as authController from './controllers/authController.js'
 import { authMiddleware, softAuthMiddleware } from './middlewares/authMiddleware.js'
 import { errorHandler } from './middlewares/errorHandler.js'
@@ -56,6 +57,12 @@ export function createApp() {
     message: { message: 'Too many comments from this IP, please try again after an hour' }
   })
 
+  const guestbookLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    message: { message: 'Too many messages from this IP, please try again after an hour' }
+  })
+
   app.use('/api/', apiLimiter)
 
   app.get('/api/health', (_req, res) => {
@@ -80,6 +87,10 @@ export function createApp() {
   app.get('/api/posts/:postId/comments', comments.list)
   app.post('/api/posts/:postId/comments', commentLimiter, comments.create)
   app.delete('/api/comments/:id', authMiddleware, comments.remove)
+
+  app.get('/api/guestbook', guestbook.list)
+  app.post('/api/guestbook', guestbookLimiter, guestbook.create)
+  app.delete('/api/guestbook/:id', authMiddleware, guestbook.remove)
 
   app.use((_req, res) => {
     res.status(404).json({ message: 'Not Found' })

@@ -5,6 +5,7 @@ import WriteView from '../views/WriteView.vue'
 import AboutView from '../views/AboutView.vue'
 import LoginView from '../views/LoginView.vue'
 import ArchivesView from '../views/ArchivesView.vue'
+import GuestbookView from '../views/GuestbookView.vue'
 import { auth } from '../stores/auth'
 
 export const router = createRouter({
@@ -16,6 +17,7 @@ export const router = createRouter({
     { path: '/write', name: 'write', component: WriteView, meta: { title: '写文章', requiresAuth: true } },
     { path: '/chenjiwei-entrance', name: 'login', component: LoginView, meta: { title: '登录' } },
     { path: '/archives', name: 'archives', component: ArchivesView, meta: { title: '归档' } },
+    { path: '/guestbook', name: 'guestbook', component: GuestbookView, meta: { title: '留言板' } },
     { path: '/about', name: 'about', component: AboutView, meta: { title: '关于' } },
   ],
   scrollBehavior(to, _from, saved) {

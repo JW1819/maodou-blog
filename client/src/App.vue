@@ -25,6 +25,7 @@ const postsSectionTo = computed(() => {
 const activeHome = computed(() => route.name === 'home' && !activeCategory.value)
 const activePosts = computed(() => route.name === 'home' || route.name === 'post')
 const activeArchives = computed(() => route.name === 'archives')
+const activeGuestbook = computed(() => route.name === 'guestbook')
 const activeWrite = computed(() => route.name === 'write')
 const activeAbout = computed(() => route.name === 'about')
 
@@ -96,6 +97,7 @@ onMounted(async () => {
               文章
             </RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeArchives }" to="/archives">归档</RouterLink>
+            <RouterLink class="nav__link" :class="{ 'nav__link--active': activeGuestbook }" to="/guestbook">留言板</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" class="nav__link" :class="{ 'nav__link--active': activeWrite }" to="/write">写文章</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeAbout }" to="/about">关于</RouterLink>
             
