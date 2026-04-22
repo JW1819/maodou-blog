@@ -1,7 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { apiGet } from './api/http'
 import { auth } from './stores/auth'
 import { categoriesStore } from './stores/categories'
 
@@ -11,19 +10,8 @@ const year = computed(() => new Date().getFullYear())
 
 const isDark = ref(localStorage.getItem('theme') === 'dark')
 
-const activeCategory = computed(() => {
-  const c = route.query.category
-  if (Array.isArray(c)) return (c[0] && String(c[0])) || ''
-  return typeof c === 'string' ? c : ''
-})
-
-const postsSectionTo = computed(() => {
-  const q = activeCategory.value ? { category: activeCategory.value } : {}
-  return { path: '/', query: q, hash: '#posts' }
-})
-
-const activeHome = computed(() => route.name === 'home' && !activeCategory.value)
-const activePosts = computed(() => route.name === 'home' || route.name === 'post')
+const activeHome = computed(() => route.name === 'home')
+const activePosts = computed(() => route.name === 'posts' || route.name === 'post')
 const activeArchives = computed(() => route.name === 'archives')
 const activeGuestbook = computed(() => route.name === 'guestbook')
 const activeWrite = computed(() => route.name === 'write')
@@ -33,12 +21,8 @@ const searchQuery = ref('')
 
 function onSearch() {
   if (!searchQuery.value.trim()) return
-  router.push({ path: '/', query: { search: searchQuery.value.trim() }, hash: '#posts' })
+  router.push({ path: '/posts', query: { search: searchQuery.value.trim() } })
   searchQuery.value = ''
-}
-
-function categoryActive(name) {
-  return activeCategory.value === name
 }
 
 function toggleTheme() {
@@ -57,13 +41,12 @@ function toggleTheme() {
 
 function onLogout() {
   auth.logout()
-  categoriesStore.fetch() // Refresh to only see published
+  categoriesStore.fetch()
   router.push('/')
 }
 
 onMounted(async () => {
   auth.check()
-  // Initialize theme
   const storedTheme = localStorage.getItem('theme')
   const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   
@@ -85,17 +68,11 @@ onMounted(async () => {
   <div class="layout">
     <header class="header">
       <div class="header__shell">
-        <div class="header__inner header__inner--top">
+        <div class="header__inner">
           <RouterLink class="logo" to="/">毛豆博客</RouterLink>
           <nav class="nav" aria-label="主导航">
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeHome }" to="/">首页</RouterLink>
-            <RouterLink
-              class="nav__link"
-              :class="{ 'nav__link--active': activePosts }"
-              :to="postsSectionTo"
-            >
-              文章
-            </RouterLink>
+            <RouterLink class="nav__link" :class="{ 'nav__link--active': activePosts }" to="/posts">文章</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeArchives }" to="/archives">归档</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeGuestbook }" to="/guestbook">留言板</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" class="nav__link" :class="{ 'nav__link--active': activeWrite }" to="/write">写文章</RouterLink>
@@ -114,28 +91,6 @@ onMounted(async () => {
                 <button @click="onLogout" class="nav__link btn-logout">退出</button>
               </template>
             </div>
-          </nav>
-        </div>
-
-        <div class="header__inner header__inner--cats" aria-label="分类筛选区域">
-          <span class="nav-cats__label">分类</span>
-          <nav class="nav-cats">
-            <RouterLink
-              class="nav__link"
-              :class="{ 'nav__link--active': route.name === 'home' && !activeCategory }"
-              :to="{ path: '/', hash: '#posts' }"
-            >
-              全部
-            </RouterLink>
-            <RouterLink
-              v-for="c in categoriesStore.items"
-              :key="c"
-              class="nav__link"
-              :class="{ 'nav__link--active': categoryActive(c) }"
-              :to="{ path: '/', query: { category: c }, hash: '#posts' }"
-            >
-              {{ c }}
-            </RouterLink>
           </nav>
         </div>
       </div>
@@ -181,41 +136,11 @@ onMounted(async () => {
 }
 
 .header__inner {
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
-}
-
-.header__inner--top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding-top: 0.875rem;
-  padding-bottom: 0.875rem;
-}
-
-.header__inner--cats {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.75rem;
-  padding-top: 0;
-  padding-bottom: 0.65rem;
-  border-top: 1px solid var(--border);
-}
-
-.nav-cats__label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.nav-cats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
+  padding: 0.875rem 1.25rem;
 }
 
 .logo {

@@ -12,7 +12,6 @@ const route = useRoute()
 const isEdit = computed(() => route.name === 'edit')
 const postId = computed(() => route.params.id)
 
-const formRef = ref(null)
 const form = reactive({
   title: '',
   excerpt: '',
@@ -22,11 +21,11 @@ const form = reactive({
   status: 'published',
 })
 
-const rules = {
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  excerpt: [{ required: true, message: '请输入摘要', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入正文内容', trigger: 'blur' }],
-}
+const errors = reactive({
+  title: '',
+  excerpt: '',
+  content: '',
+})
 
 const submitting = ref(false)
 const loading = ref(false)
@@ -53,6 +52,28 @@ onMounted(loadPost)
 
 function onContentChange(value) {
   form.content = value
+  if (value.trim()) errors.content = ''
+}
+
+function validate() {
+  let valid = true
+  errors.title = ''
+  errors.excerpt = ''
+  errors.content = ''
+
+  if (!form.title.trim()) {
+    errors.title = '请输入标题'
+    valid = false
+  }
+  if (!form.excerpt.trim()) {
+    errors.excerpt = '请输入摘要'
+    valid = false
+  }
+  if (!form.content.trim()) {
+    errors.content = '请输入正文内容'
+    valid = false
+  }
+  return valid
 }
 
 async function onUploadImg(files, callback) {
@@ -86,128 +107,148 @@ async function onUploadImg(files, callback) {
 }
 
 async function onSubmit() {
-  if (!formRef.value) return
+  if (!validate()) return
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
-
-    submitting.value = true
-    try {
-      const data = {
-        ...form,
-        title: form.title.trim(),
-        excerpt: form.excerpt.trim(),
-        content: form.content.trim(),
-        category: form.category.trim(),
-        tags: form.tags.trim(),
-      }
-
-      let post
-      if (isEdit.value) {
-        post = await apiPatch(`/api/posts/${postId.value}`, data)
-      } else {
-        post = await apiPost('/api/posts', data)
-      }
-
-      categoriesStore.fetch()
-      ElMessage.success(isEdit.value ? '文章已更新' : '文章已发布')
-      await router.push({ name: 'post', params: { id: post.id } })
-    } catch (e) {
-      ElMessage.error('保存失败：' + (e instanceof Error ? e.message : String(e)))
-    } finally {
-      submitting.value = false
+  submitting.value = true
+  try {
+    const data = {
+      ...form,
+      title: form.title.trim(),
+      excerpt: form.excerpt.trim(),
+      content: form.content.trim(),
+      category: form.category.trim(),
+      tags: form.tags.trim(),
     }
-  })
+
+    let post
+    if (isEdit.value) {
+      post = await apiPatch(`/api/posts/${postId.value}`, data)
+    } else {
+      post = await apiPost('/api/posts', data)
+    }
+
+    categoriesStore.fetch()
+    ElMessage.success(isEdit.value ? '文章已更新' : '文章已发布')
+    await router.push({ name: 'post', params: { id: post.id } })
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e instanceof Error ? e.message : String(e)))
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
 <template>
   <div class="write">
-    <div class="write-header">
+    <section class="write__hero">
+      <p class="write__eyebrow">Write</p>
       <h1 class="write__title">{{ isEdit ? '编辑文章' : '写文章' }}</h1>
-      <p class="write__hint">正文支持 Markdown 格式，实时预览，发布即见。</p>
+      <p class="write__desc">
+        正文支持 Markdown 格式，实时预览，发布即见。
+      </p>
+    </section>
+
+    <div
+      v-if="loading"
+      class="state state--muted state--loading"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span class="ui-spinner" aria-hidden="true" />
+      <span>正在加载文章…</span>
     </div>
 
-    <el-skeleton :loading="loading" animated>
-      <template #template>
-        <el-skeleton-item variant="h1" style="width: 50%; margin-bottom: 20px" />
-        <el-skeleton-item variant="text" style="margin-bottom: 10px" />
-        <el-skeleton-item variant="text" style="margin-bottom: 10px" />
-        <el-skeleton-item variant="rect" style="height: 300px" />
-      </template>
+    <form v-else @submit.prevent="onSubmit" class="write-form">
+      <div class="write-form__row">
+        <div class="field field--flex">
+          <label class="field__label" for="write-title">文章标题 <span class="field__required">*</span></label>
+          <input
+            id="write-title"
+            v-model="form.title"
+            type="text"
+            placeholder="给你的文章起个吸引人的标题..."
+            maxlength="100"
+            class="field__input"
+            @input="errors.title = ''"
+          />
+          <span v-if="errors.title" class="field__error" role="alert">{{ errors.title }}</span>
+        </div>
+        <div class="field field--narrow">
+          <label class="field__label" for="write-category">分类</label>
+          <input
+            id="write-category"
+            v-model="form.category"
+            type="text"
+            placeholder="例如：技术、随笔"
+            maxlength="30"
+            class="field__input"
+          />
+        </div>
+      </div>
 
-      <template #default>
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-position="top"
-          class="write-form"
-        >
-          <el-row :gutter="20">
-            <el-col :span="16">
-              <el-form-item label="文章标题" prop="title">
-                <el-input v-model="form.title" placeholder="给你的文章起个吸引人的标题..." size="large" />
-              </el-form-item>
-            </el-col>
-            <el-col :span="8">
-              <el-form-item label="分类" prop="category">
-                <el-input v-model="form.category" placeholder="例如：技术、随笔" size="large" />
-              </el-form-item>
-            </el-col>
-          </el-row>
+      <div class="field">
+        <label class="field__label" for="write-tags">标签（用逗号隔开）</label>
+        <input
+          id="write-tags"
+          v-model="form.tags"
+          type="text"
+          placeholder="例如：Vue, Node.js, 生活"
+          class="field__input"
+        />
+      </div>
 
-          <el-form-item label="标签 (用逗号隔开)" prop="tags">
-            <el-input v-model="form.tags" placeholder="例如：Vue, Node.js, 生活" />
-          </el-form-item>
+      <div class="field">
+        <label class="field__label" for="write-excerpt">内容摘要 <span class="field__required">*</span></label>
+        <textarea
+          id="write-excerpt"
+          v-model="form.excerpt"
+          placeholder="简要介绍一下文章内容..."
+          rows="2"
+          maxlength="200"
+          class="field__textarea field__textarea--short"
+          @input="errors.excerpt = ''"
+        ></textarea>
+        <span v-if="errors.excerpt" class="field__error" role="alert">{{ errors.excerpt }}</span>
+      </div>
 
-          <el-form-item label="内容摘要" prop="excerpt">
-            <el-input
-              v-model="form.excerpt"
-              type="textarea"
-              :rows="2"
-              placeholder="简要介绍一下文章内容..."
-            />
-          </el-form-item>
+      <div class="field">
+        <label class="field__label">正文内容 <span class="field__required">*</span></label>
+        <div class="editor-container">
+          <MdEditor
+            :model-value="form.content"
+            @update:model-value="onContentChange"
+            @onUploadImg="onUploadImg"
+            :preview="true"
+            placeholder="开始你的创作..."
+            :toolbarsExclude="['github', 'htmlPreview', 'catalog']"
+            style="height: 500px;"
+          />
+        </div>
+        <span v-if="errors.content" class="field__error" role="alert">{{ errors.content }}</span>
+      </div>
 
-          <el-form-item prop="content">
-            <template #label>
-              <div class="content-label">
-                <span>正文内容 (Markdown 编辑器)</span>
-              </div>
-            </template>
-            <div class="editor-container">
-              <MdEditor
-                :model-value="form.content"
-                @update:model-value="onContentChange"
-                @onUploadImg="onUploadImg"
-                :preview="true"
-                placeholder="开始你的创作..."
-                :toolbarsExclude="['github', 'htmlPreview', 'catalog']"
-                style="height: 500px;"
-              />
-            </div>
-          </el-form-item>
+      <div class="write-form__footer">
+        <div class="status-selector">
+          <span class="status-selector__label">发布状态：</span>
+          <label class="status-selector__option" :class="{ 'status-selector__option--active': form.status === 'published' }">
+            <input type="radio" v-model="form.status" value="published" class="status-selector__radio" />
+            立即发布
+          </label>
+          <label class="status-selector__option" :class="{ 'status-selector__option--active': form.status === 'draft' }">
+            <input type="radio" v-model="form.status" value="draft" class="status-selector__radio" />
+            保存草稿
+          </label>
+        </div>
 
-          <div class="form-footer">
-            <div class="status-selector">
-              <span class="status-label">发布状态：</span>
-              <el-radio-group v-model="form.status">
-                <el-radio-button label="published">立即发布</el-radio-button>
-                <el-radio-button label="draft">保存草稿</el-radio-button>
-              </el-radio-group>
-            </div>
-
-            <div class="actions">
-              <el-button @click="router.back()">取消</el-button>
-              <el-button type="primary" :loading="submitting" @click="onSubmit" size="large">
-                {{ isEdit ? '更新文章' : '发布文章' }}
-              </el-button>
-            </div>
-          </div>
-        </el-form>
-      </template>
-    </el-skeleton>
+        <div class="write-form__actions">
+          <button type="button" class="btn btn--ghost" @click="router.back()">取消</button>
+          <button type="submit" class="btn btn--primary" :disabled="submitting">
+            {{ submitting ? '提交中...' : (isEdit ? '更新文章' : '发布文章') }}
+          </button>
+        </div>
+      </div>
+    </form>
   </div>
 </template>
 
@@ -217,21 +258,36 @@ async function onSubmit() {
   margin: 0 auto;
 }
 
-.write-header {
+.write__hero {
   margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.write__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
 }
 
 .write__title {
-  margin: 0 0 0.5rem;
-  font-size: 1.75rem;
-  font-weight: 700;
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text);
 }
 
-.write__hint {
+.write__desc {
   margin: 0;
-  font-size: 0.9375rem;
+  max-width: 40rem;
+  font-size: 1rem;
   color: var(--text-muted);
+  line-height: 1.6;
 }
 
 .write-form {
@@ -239,13 +295,79 @@ async function onSubmit() {
   padding: 2rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
-.content-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.write-form__row {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 1rem;
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field--flex {
+  flex: 1;
+}
+
+.field--narrow {
+  align-self: start;
+}
+
+.field__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.field__required {
+  color: #e76f51;
+}
+
+.field__input,
+.field__textarea {
   width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field__input:focus,
+.field__textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field__input::placeholder,
+.field__textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.field__textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.field__textarea--short {
+  min-height: 3.5rem;
+}
+
+.field__error {
+  display: block;
+  font-size: 0.8125rem;
+  color: #b42318;
+  margin-top: 0.3rem;
 }
 
 .editor-container {
@@ -255,30 +377,127 @@ async function onSubmit() {
   width: 100%;
 }
 
-.form-footer {
-  margin-top: 2.5rem;
+.write-form__footer {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border);
+  gap: 1rem;
 }
 
 .status-selector {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
-.status-label {
-  font-size: 0.875rem;
+.status-selector__label {
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-muted);
 }
 
-.actions {
+.status-selector__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.status-selector__option:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.status-selector__option--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.status-selector__radio {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.write-form__actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.35rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn--primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn--ghost {
+  background: var(--surface);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.btn--ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.state {
+  padding: 2rem 1rem;
+  text-align: center;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+}
+
+.state--muted {
+  color: var(--text-muted);
+}
+
+.state--loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
 @media (max-width: 768px) {
@@ -291,7 +510,11 @@ async function onSubmit() {
     padding: 1.5rem;
   }
 
-  .form-footer {
+  .write-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .write-form__footer {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
@@ -299,9 +522,10 @@ async function onSubmit() {
 
   .status-selector {
     justify-content: center;
+    flex-wrap: wrap;
   }
 
-  .actions {
+  .write-form__actions {
     justify-content: center;
   }
 }

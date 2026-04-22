@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import PostsView from '../views/PostsView.vue'
 import PostDetailView from '../views/PostDetailView.vue'
 import WriteView from '../views/WriteView.vue'
 import AboutView from '../views/AboutView.vue'
@@ -12,6 +13,7 @@ export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', name: 'home', component: HomeView, meta: { title: '首页' } },
+    { path: '/posts', name: 'posts', component: PostsView, meta: { title: '文章' } },
     { path: '/posts/:id', name: 'post', component: PostDetailView, meta: { title: '文章' } },
     { path: '/posts/:id/edit', name: 'edit', component: WriteView, meta: { title: '编辑文章', requiresAuth: true } },
     { path: '/write', name: 'write', component: WriteView, meta: { title: '写文章', requiresAuth: true } },

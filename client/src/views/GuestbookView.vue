@@ -3,6 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiGet, apiPost, apiDelete } from '../api/http'
 import { formatDate } from '../utils/formatDate'
+import { avatarColor, avatarLetter } from '../utils/avatar'
 import { auth } from '../stores/auth'
 
 const messages = ref([])
@@ -20,23 +21,6 @@ const form = reactive({
 
 const totalPages = computed(() => pagination.value.totalPages)
 const totalCount = computed(() => pagination.value.total)
-
-function avatarColor(name) {
-  const colors = [
-    '#2d6a4f', '#40916c', '#52b788', '#74c69d',
-    '#1b4332', '#8d99ae', '#2b2d42', '#6c757d',
-    '#e76f51', '#f4a261', '#e9c46a', '#264653',
-  ]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return colors[Math.abs(hash) % colors.length]
-}
-
-function avatarLetter(name) {
-  return (name || '?').charAt(0).toUpperCase()
-}
 
 async function loadMessages() {
   loading.value = true
@@ -115,7 +99,7 @@ onMounted(() => {
 <template>
   <div class="guestbook">
     <section class="guestbook__hero">
-      <p class="guestbook__eyebrow">留言板</p>
+      <p class="guestbook__eyebrow">Guestbook</p>
       <h1 class="guestbook__title">留下你的足迹</h1>
       <p class="guestbook__desc">
         无论是技术探讨、问题反馈，还是随便聊聊，都欢迎在这里留言。
@@ -127,8 +111,8 @@ onMounted(() => {
         <form @submit.prevent="submitMessage" class="msg-form">
           <h2 class="msg-form__title">写留言</h2>
           <div class="msg-form__row">
-            <div class="msg-form__field">
-              <label class="msg-form__label" for="gb-author">昵称 <span class="msg-form__required">*</span></label>
+            <div class="field">
+              <label class="field__label" for="gb-author">昵称 <span class="field__required">*</span></label>
               <input
                 id="gb-author"
                 v-model="form.author"
@@ -136,23 +120,23 @@ onMounted(() => {
                 placeholder="你的昵称"
                 required
                 maxlength="30"
-                class="msg-form__input"
+                class="field__input"
               />
             </div>
-            <div class="msg-form__field">
-              <label class="msg-form__label" for="gb-email">邮箱</label>
+            <div class="field">
+              <label class="field__label" for="gb-email">邮箱</label>
               <input
                 id="gb-email"
                 v-model="form.email"
                 type="email"
                 placeholder="选填，不会公开显示"
                 maxlength="100"
-                class="msg-form__input"
+                class="field__input"
               />
             </div>
           </div>
-          <div class="msg-form__field">
-            <label class="msg-form__label" for="gb-content">留言内容 <span class="msg-form__required">*</span></label>
+          <div class="field">
+            <label class="field__label" for="gb-content">留言内容 <span class="field__required">*</span></label>
             <textarea
               id="gb-content"
               v-model="form.content"
@@ -160,11 +144,11 @@ onMounted(() => {
               required
               maxlength="500"
               rows="4"
-              class="msg-form__textarea"
+              class="field__textarea"
             ></textarea>
-            <span class="msg-form__count">{{ form.content.length }} / 500</span>
+            <span class="field__count">{{ form.content.length }} / 500</span>
           </div>
-          <p v-if="form.error" class="msg-form__error">{{ form.error }}</p>
+          <p v-if="form.error" class="msg-form__error" role="alert">{{ form.error }}</p>
           <button type="submit" class="msg-form__submit" :disabled="form.submitting">
             {{ form.submitting ? '提交中...' : '提交留言' }}
           </button>
@@ -188,9 +172,9 @@ onMounted(() => {
           <span>正在加载留言…</span>
         </div>
 
-        <div v-else-if="messages.length === 0" class="guestbook__empty">
-          <p class="guestbook__empty-lead">还没有留言</p>
-          <p class="guestbook__empty-sub">成为第一个留言的人吧！</p>
+        <div v-else-if="messages.length === 0" class="state state--muted">
+          <p class="state__lead">还没有留言</p>
+          <p class="state__sub">成为第一个留言的人吧！</p>
         </div>
 
         <ul v-else class="msg-list" role="list">
@@ -233,8 +217,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.guestbook {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
 .guestbook__hero {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
   padding-bottom: 2rem;
   border-bottom: 1px solid var(--border);
 }
@@ -250,10 +239,10 @@ onMounted(() => {
 
 .guestbook__title {
   margin: 0 0 0.75rem;
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-size: clamp(1.5rem, 4vw, 2rem);
   font-weight: 600;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text);
 }
 
@@ -273,7 +262,7 @@ onMounted(() => {
 
 @media (min-width: 768px) {
   .guestbook__layout {
-    grid-template-columns: 380px 1fr;
+    grid-template-columns: 320px 1fr;
   }
 }
 
@@ -298,7 +287,6 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
 }
 
 @media (max-width: 480px) {
@@ -307,11 +295,11 @@ onMounted(() => {
   }
 }
 
-.msg-form__field {
+.field {
   margin-bottom: 0.75rem;
 }
 
-.msg-form__label {
+.field__label {
   display: block;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -319,12 +307,12 @@ onMounted(() => {
   margin-bottom: 0.35rem;
 }
 
-.msg-form__required {
+.field__required {
   color: #e76f51;
 }
 
-.msg-form__input,
-.msg-form__textarea {
+.field__input,
+.field__textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
@@ -333,22 +321,28 @@ onMounted(() => {
   color: var(--text);
   font: inherit;
   font-size: 0.9375rem;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.msg-form__input:focus,
-.msg-form__textarea:focus {
+.field__input:focus,
+.field__textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.msg-form__textarea {
+.field__input::placeholder,
+.field__textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.field__textarea {
   min-height: 6rem;
   resize: vertical;
 }
 
-.msg-form__count {
+.field__count {
   display: block;
   text-align: right;
   font-size: 0.75rem;
@@ -358,8 +352,12 @@ onMounted(() => {
 
 .msg-form__error {
   margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
   font-size: 0.875rem;
   color: #b42318;
+  background: rgba(180, 35, 24, 0.06);
+  border: 1px solid rgba(180, 35, 24, 0.1);
+  border-radius: 8px;
 }
 
 .msg-form__submit {
@@ -410,22 +408,33 @@ onMounted(() => {
   color: var(--text-muted);
 }
 
-.guestbook__empty {
+.state {
+  padding: 2rem 1rem;
   text-align: center;
-  padding: 3rem 1rem;
-  border: 1px dashed var(--border);
   border-radius: var(--radius);
+  border: 1px dashed var(--border);
 }
 
-.guestbook__empty-lead {
-  margin: 0 0 0.35rem;
+.state--muted {
+  color: var(--text-muted);
+}
+
+.state--loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.state__lead {
+  margin: 0 0 0.25rem;
   font-weight: 600;
-  color: var(--text);
 }
 
-.guestbook__empty-sub {
+.state__sub {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
 }
 
@@ -525,21 +534,23 @@ onMounted(() => {
   justify-content: center;
 }
 
-.state--loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 3rem 1rem;
-  color: var(--text-muted);
-}
-
 :deep(.el-pagination.is-background .el-pager li:not(.is-active):hover) {
   color: var(--accent);
 }
 
 :deep(.el-pagination.is-background .el-pager li.is-active) {
   background-color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .msg-card {
+    padding: 1rem;
+  }
+
+  .msg-card__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.875rem;
+  }
 }
 </style>

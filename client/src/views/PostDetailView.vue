@@ -1,15 +1,15 @@
 <script setup>
-import { computed, onMounted, ref, watch, watchEffect, reactive, nextTick } from 'vue'
+import { computed, onMounted, ref, watch, watchEffect, reactive } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 import DOMPurify from 'dompurify'
-import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiGet, apiDelete, apiPost } from '../api/http'
 import { formatDate } from '../utils/formatDate'
+import { avatarColor, avatarLetter } from '../utils/avatar'
 import { auth } from '../stores/auth'
 import { categoriesStore } from '../stores/categories'
 
@@ -53,7 +53,6 @@ const readingTime = computed(() => {
   const content = post.value?.content || ''
   const words = content.trim().split(/\s+/).length
   const chars = content.replace(/\s+/g, '').length
-  // Estimate for a mix of Chinese and English: roughly 300-400 chars/words per minute
   const minutes = Math.ceil((words + chars) / 400)
   return minutes > 0 ? minutes : 1
 })
@@ -87,7 +86,10 @@ async function loadComments() {
 }
 
 async function submitComment() {
-  if (!commentForm.author.trim() || !commentForm.content.trim()) return
+  if (!commentForm.author.trim() || !commentForm.content.trim()) {
+    commentForm.error = '昵称和评论内容为必填项'
+    return
+  }
   commentForm.submitting = true
   commentForm.error = ''
   try {
@@ -132,12 +134,11 @@ async function onDelete() {
       cancelButtonText: '取消',
       type: 'danger',
     })
-    
     deleting.value = true
     await apiDelete(`/api/posts/${post.value.id}`)
     categoriesStore.fetch()
     ElMessage.success('文章已删除')
-    router.push('/')
+    router.push('/posts')
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error('删除失败：' + (e instanceof Error ? e.message : String(e)))
@@ -161,9 +162,11 @@ watchEffect(() => {
 
 <template>
   <div class="detail">
-    <p class="detail__back">
-      <RouterLink class="detail__back-link" to="/">← 返回首页</RouterLink>
-    </p>
+    <nav class="detail__back" aria-label="返回导航">
+      <RouterLink class="detail__back-link" to="/posts">
+        <span aria-hidden="true">←</span> 返回文章列表
+      </RouterLink>
+    </nav>
 
     <div
       v-if="loading"
@@ -185,12 +188,14 @@ watchEffect(() => {
       <header class="article__head">
         <div class="article__meta">
           <time class="article__time" :datetime="post.createdAt">{{ formatDate(post.createdAt) }}</time>
-          <span class="article__stat">· {{ post.viewCount }} 次阅读</span>
-          <span class="article__stat">· 预计阅读 {{ readingTime }} 分钟</span>
+          <span class="article__dot" aria-hidden="true">·</span>
+          <span class="article__stat">{{ post.viewCount }} 次阅读</span>
+          <span class="article__dot" aria-hidden="true">·</span>
+          <span class="article__stat">预计阅读 {{ readingTime }} 分钟</span>
           <RouterLink
             v-if="post.category"
             class="article__cat"
-            :to="{ path: '/', query: { category: post.category }, hash: '#posts' }"
+            :to="{ path: '/posts', query: { category: post.category } }"
           >
             {{ post.category }}
           </RouterLink>
@@ -204,39 +209,90 @@ watchEffect(() => {
           </button>
         </div>
       </header>
+
       <div class="article__body">
         <div v-if="renderedContent" class="markdown-body" v-html="renderedContent"></div>
-        <p v-else class="article__empty">暂无正文内容</p>
+        <div v-else class="state state--muted">
+          <p class="state__lead">暂无正文内容</p>
+        </div>
       </div>
 
       <section class="comments">
-        <h2 class="comments__title">评论 ({{ comments.length }})</h2>
-        
-        <div v-if="commentsLoading" class="comments__loading">正在加载评论...</div>
-        <div v-else-if="comments.length === 0" class="comments__empty">暂无评论，快来抢沙发吧！</div>
-        <ul v-else class="comments__list">
-          <li v-for="comment in comments" :key="comment.id" class="comment">
-            <div class="comment__meta">
-              <span class="comment__author">{{ comment.author }}</span>
-              <div class="comment__meta-right">
-                <time class="comment__time">{{ formatDate(comment.createdAt) }}</time>
-                <button v-if="auth.isLoggedIn" @click="deleteComment(comment.id)" class="btn-link btn-link--danger comment__delete">删除</button>
-              </div>
+        <div class="comments__head">
+          <h2 class="comments__title">评论</h2>
+          <span class="comments__count">{{ comments.length }} 条</span>
+        </div>
+
+        <div
+          v-if="commentsLoading"
+          class="state state--muted state--loading"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <span class="ui-spinner" aria-hidden="true" />
+          <span>正在加载评论…</span>
+        </div>
+
+        <div v-else-if="comments.length === 0" class="state state--muted">
+          <p class="state__lead">暂无评论</p>
+          <p class="state__sub">快来抢沙发吧！</p>
+        </div>
+
+        <ul v-else class="msg-list" role="list">
+          <li v-for="comment in comments" :key="comment.id" class="msg-card">
+            <div class="msg-card__avatar" :style="{ backgroundColor: avatarColor(comment.author) }">
+              {{ avatarLetter(comment.author) }}
             </div>
-            <p class="comment__content">{{ comment.content }}</p>
+            <div class="msg-card__body">
+              <div class="msg-card__head">
+                <span class="msg-card__author">{{ comment.author }}</span>
+                <time class="msg-card__time" :datetime="comment.createdAt">{{ formatDate(comment.createdAt) }}</time>
+                <button
+                  v-if="auth.isLoggedIn"
+                  @click="deleteComment(comment.id)"
+                  class="msg-card__delete"
+                  title="删除评论"
+                >
+                  删除
+                </button>
+              </div>
+              <p class="msg-card__content">{{ comment.content }}</p>
+            </div>
           </li>
         </ul>
 
         <form @submit.prevent="submitComment" class="comment-form">
           <h3 class="comment-form__title">发表评论</h3>
           <div class="comment-form__row">
-            <input v-model="commentForm.author" type="text" placeholder="昵称" required class="comment-form__input" />
+            <div class="field">
+              <label class="field__label" for="comment-author">昵称 <span class="field__required">*</span></label>
+              <input
+                id="comment-author"
+                v-model="commentForm.author"
+                type="text"
+                placeholder="你的昵称"
+                required
+                maxlength="30"
+                class="field__input"
+              />
+            </div>
           </div>
-          <div class="comment-form__row">
-            <textarea v-model="commentForm.content" placeholder="评论内容..." required class="comment-form__textarea"></textarea>
+          <div class="field">
+            <label class="field__label" for="comment-content">评论内容 <span class="field__required">*</span></label>
+            <textarea
+              id="comment-content"
+              v-model="commentForm.content"
+              placeholder="说点什么吧..."
+              required
+              maxlength="500"
+              rows="4"
+              class="field__textarea"
+            ></textarea>
+            <span class="field__count">{{ commentForm.content.length }} / 500</span>
           </div>
-          <p v-if="commentForm.error" class="comment-form__error">{{ commentForm.error }}</p>
-          <button type="submit" class="btn btn--primary" :disabled="commentForm.submitting">
+          <p v-if="commentForm.error" class="comment-form__error" role="alert">{{ commentForm.error }}</p>
+          <button type="submit" class="comment-form__submit" :disabled="commentForm.submitting">
             {{ commentForm.submitting ? '提交中...' : '提交评论' }}
           </button>
         </form>
@@ -246,22 +302,34 @@ watchEffect(() => {
 </template>
 
 <style scoped>
+.detail {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
 .detail__back {
-  margin: 0 0 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .detail__back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.9375rem;
   color: var(--text-muted);
   text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .detail__back-link:hover {
+  background: var(--accent-soft);
   color: var(--accent);
+  text-decoration: none;
 }
 
 .state {
-  margin: 0;
   padding: 2rem 1rem;
   text-align: center;
   border-radius: var(--radius);
@@ -272,40 +340,34 @@ watchEffect(() => {
   color: var(--text-muted);
 }
 
-.state--loading span:last-child {
-  font-size: 0.9375rem;
-}
-
-.article__empty {
-  margin: 0;
-  padding: 1.5rem 1rem;
-  text-align: center;
-  border-radius: var(--radius);
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
-  font-size: 0.9375rem;
+.state--loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
 .state--error {
   color: #b42318;
   background: rgba(180, 35, 24, 0.06);
-  border-style: solid;
+  border: 1px solid rgba(180, 35, 24, 0.1);
 }
 
-@media (prefers-color-scheme: dark) {
-  .state--error {
-    color: #fca5a5;
-    background: rgba(248, 113, 113, 0.08);
-  }
+.state__lead {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
 }
 
-.article {
-  max-width: 42rem;
+.state__sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
 }
 
 .article__head {
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -313,24 +375,30 @@ watchEffect(() => {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .article__time {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.article__dot {
+  color: var(--border);
+  user-select: none;
 }
 
 .article__stat {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
 .article__cat {
   font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.15rem 0.45rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 6px;
   background: var(--accent-soft);
   color: var(--accent);
@@ -356,6 +424,35 @@ watchEffect(() => {
   font-size: 1.05rem;
   color: var(--text-muted);
   line-height: 1.5;
+}
+
+.article__actions {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-link {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--accent);
+}
+
+.btn-link--danger:hover {
+  color: #b42318;
+}
+
+.btn-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .article__body {
@@ -501,89 +598,121 @@ watchEffect(() => {
   margin-right: 0.5rem;
 }
 
-.article__p {
-  margin: 0 0 1rem;
-  white-space: pre-wrap;
-}
-
-.article__p:last-child {
-  margin-bottom: 0;
-}
-
-.article__actions {
-  margin-top: 1.5rem;
-  display: flex;
-  gap: 1rem;
-}
-
-.btn-link {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.btn-link:hover {
-  color: var(--accent);
-}
-
-.btn-link--danger:hover {
-  color: #b42318;
-}
-
-.btn-link:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Comments Styles */
 .comments {
   margin-top: 4rem;
-  padding-top: 2rem;
+  padding-top: 2.5rem;
   border-top: 1px solid var(--border);
 }
 
-.comments__title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-}
-
-.comments__list {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 3rem;
-}
-
-.comment {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.comment__meta {
+.comments__head {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.comment__author {
+.comments__title {
+  margin: 0;
+  font-size: 1.125rem;
   font-weight: 600;
   color: var(--text);
 }
 
-.comment__time {
+.comments__count {
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 
-.comment__content {
+.msg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.msg-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.msg-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  transform: translateY(-1px);
+}
+
+.msg-card__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.msg-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.msg-card__author {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.msg-card__time {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.msg-card__delete {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.msg-card:hover .msg-card__delete {
+  opacity: 1;
+}
+
+.msg-card__delete:hover {
+  color: #b42318;
+}
+
+.msg-card__content {
   margin: 0;
   font-size: 0.9375rem;
   line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
 }
 
 .comment-form {
@@ -591,20 +720,38 @@ watchEffect(() => {
   padding: 1.5rem;
   border-radius: var(--radius);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .comment-form__title {
-  font-size: 1rem;
+  margin: 0 0 1.25rem;
+  font-size: 1.0625rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+  color: var(--text);
 }
 
 .comment-form__row {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
-.comment-form__input,
-.comment-form__textarea {
+.field {
+  margin-bottom: 0.75rem;
+}
+
+.field__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.field__required {
+  color: #e76f51;
+}
+
+.field__input,
+.field__textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
@@ -612,24 +759,83 @@ watchEffect(() => {
   background: var(--bg);
   color: var(--text);
   font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.comment-form__textarea {
+.field__input:focus,
+.field__textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field__input::placeholder,
+.field__textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.field__textarea {
   min-height: 6rem;
   resize: vertical;
 }
 
-.btn--primary {
+.field__count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.comment-form__error {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #b42318;
+  background: rgba(180, 35, 24, 0.06);
+  border: 1px solid rgba(180, 35, 24, 0.1);
+  border-radius: 8px;
+}
+
+.comment-form__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--accent);
   color: white;
-  padding: 0.6rem 1.2rem;
+  padding: 0.65rem 1.5rem;
   border: none;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 0.9375rem;
   cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
 }
 
-.btn--primary:disabled {
+.comment-form__submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.comment-form__submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.comment-form__submit:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .msg-card {
+    padding: 1rem;
+  }
+
+  .msg-card__avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.875rem;
+  }
 }
 </style>
