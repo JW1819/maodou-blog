@@ -1,0 +1,60 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches: [ main ]  # 触发分支，根据你的主分支名称调整
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. 设置Node.js环境
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'  # 使用与你的项目匹配的Node.js版本
+
+      # 3. 构建前端
+      - name: Build frontend
+        run: |
+          cd client
+          npm install
+          npm run build
+
+      # 4. 部署到服务器
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          port: ${{ secrets.SERVER_PORT }}  # 默认22
+          script: |
+            # 进入项目目录
+            cd /var/www/maodou-blog/maodou-blog
+            
+            # 拉取最新代码
+            git pull
+            
+            # 更新后端依赖
+            cd server
+            npm install
+            
+            # 重启后端服务（假设使用PM2管理）
+            pm2 restart server || pm2 start src/index.js --name maodou-blog-api
+
+      # 5. 上传前端构建产物到服务器
+      - name: Upload frontend build
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: 'client/dist/*'
+          target: '/var/www/maodou-blog/maodou-blog/client/dist/'
+          strip_components: 1

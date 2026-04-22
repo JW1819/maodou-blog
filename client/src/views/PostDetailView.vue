@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch, watchEffect, reactive, nextTick } from
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css' // Or any other style
+import DOMPurify from 'dompurify'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { apiGet, apiDelete, apiPost } from '../api/http'
@@ -29,7 +30,7 @@ const commentForm = reactive({
 const renderedContent = computed(() => {
   const c = post.value?.content
   if (!c) return ''
-  return c
+  return DOMPurify.sanitize(c)
 })
 
 const readingTime = computed(() => {
