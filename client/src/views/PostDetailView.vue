@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch, watchEffect, reactive, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { Marked } from 'marked'
+import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/github-dark.css' // Or any other style
+import 'highlight.js/styles/github-dark.css'
 import DOMPurify from 'dompurify'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -10,6 +12,19 @@ import { apiGet, apiDelete, apiPost } from '../api/http'
 import { formatDate } from '../utils/formatDate'
 import { auth } from '../stores/auth'
 import { categoriesStore } from '../stores/categories'
+
+const markedInstance = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value
+      }
+      return hljs.highlightAuto(code).value
+    }
+  }),
+  { breaks: true, gfm: true }
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -30,7 +45,8 @@ const commentForm = reactive({
 const renderedContent = computed(() => {
   const c = post.value?.content
   if (!c) return ''
-  return DOMPurify.sanitize(c)
+  const html = markedInstance.parse(c)
+  return DOMPurify.sanitize(html)
 })
 
 const readingTime = computed(() => {
@@ -40,11 +56,6 @@ const readingTime = computed(() => {
   // Estimate for a mix of Chinese and English: roughly 300-400 chars/words per minute
   const minutes = Math.ceil((words + chars) / 400)
   return minutes > 0 ? minutes : 1
-})
-
-watch(renderedContent, async () => {
-  await nextTick()
-  hljs.highlightAll()
 })
 
 async function load() {
@@ -351,6 +362,143 @@ watchEffect(() => {
   font-size: 1.0625rem;
   line-height: 1.75;
   color: var(--text);
+}
+
+.markdown-body :deep(h1) {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.markdown-body :deep(h2) {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 1.75rem 0 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.markdown-body :deep(h4) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.markdown-body :deep(p) {
+  margin: 0 0 1rem;
+  line-height: 1.8;
+}
+
+.markdown-body :deep(a) {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.markdown-body :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-body :deep(strong) {
+  font-weight: 600;
+}
+
+.markdown-body :deep(em) {
+  font-style: italic;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin: 0 0 1rem;
+  padding-left: 2rem;
+}
+
+.markdown-body :deep(li) {
+  margin: 0.25rem 0;
+  line-height: 1.7;
+}
+
+.markdown-body :deep(blockquote) {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text-muted);
+  border-radius: 0 8px 8px 0;
+}
+
+.markdown-body :deep(blockquote p) {
+  margin: 0;
+}
+
+.markdown-body :deep(code) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.875em;
+}
+
+.markdown-body :deep(pre) {
+  background: #1b1b1f;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.markdown-body :deep(pre code) {
+  background: transparent;
+  color: #e4e4e7;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.markdown-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: block;
+}
+
+.markdown-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.markdown-body :deep(th) {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.markdown-body :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.markdown-body :deep(input[type="checkbox"]) {
+  margin-right: 0.5rem;
 }
 
 .article__p {

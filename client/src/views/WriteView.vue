@@ -1,8 +1,8 @@
 <script setup>
 import { reactive, ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
 import { ElMessage } from 'element-plus'
 import { apiPost, apiGet, apiPatch } from '../api/http'
 import { categoriesStore } from '../stores/categories'
@@ -13,7 +13,6 @@ const isEdit = computed(() => route.name === 'edit')
 const postId = computed(() => route.params.id)
 
 const formRef = ref(null)
-const quillEditor = ref(null)
 const form = reactive({
   title: '',
   excerpt: '',
@@ -31,31 +30,6 @@ const rules = {
 
 const submitting = ref(false)
 const loading = ref(false)
-
-const editorOptions = {
-  modules: {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link', 'image', 'blockquote', 'code-block'],
-      ['clean']
-    ],
-    clipboard: {
-      matchVisual: false
-    }
-  },
-  placeholder: '开始你的创作...',
-  theme: 'snow',
-  bounds: '.editor-container',
-  formats: [
-    'header', 'bold', 'italic', 'underline', 'strike',
-    'color', 'background', 'list', 'align',
-    'link', 'image', 'blockquote', 'code-block'
-  ]
-}
 
 async function loadPost() {
   if (!isEdit.value) return
@@ -77,9 +51,43 @@ async function loadPost() {
 
 onMounted(loadPost)
 
+function onContentChange(value) {
+  form.content = value
+}
+
+async function onUploadImg(files, callback) {
+  const results = []
+  for (const file of files) {
+    const loadingMsg = ElMessage.info({
+      message: '正在上传图片...',
+      duration: 0
+    })
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      })
+      const data = await res.json()
+      loadingMsg.close()
+      if (!res.ok) throw new Error(data.message || 'Upload failed')
+      results.push({ url: data.url, alt: file.name })
+      ElMessage.success('图片上传成功')
+    } catch (e) {
+      loadingMsg.close()
+      ElMessage.error('图片上传失败：' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+  callback(results)
+}
+
 async function onSubmit() {
   if (!formRef.value) return
-  
+
   await formRef.value.validate(async (valid) => {
     if (!valid) return
 
@@ -93,14 +101,14 @@ async function onSubmit() {
         category: form.category.trim(),
         tags: form.tags.trim(),
       }
-      
+
       let post
       if (isEdit.value) {
         post = await apiPatch(`/api/posts/${postId.value}`, data)
       } else {
         post = await apiPost('/api/posts', data)
       }
-      
+
       categoriesStore.fetch()
       ElMessage.success(isEdit.value ? '文章已更新' : '文章已发布')
       await router.push({ name: 'post', params: { id: post.id } })
@@ -111,68 +119,13 @@ async function onSubmit() {
     }
   })
 }
-
-async function onEditorReady() {
-  const editor = quillEditor.value?.getQuill()
-  if (!editor) return
-  
-  const toolbar = editor.getModule('toolbar')
-  toolbar.addHandler('image', () => {
-    const input = document.createElement('input')
-    input.setAttribute('type', 'file')
-    input.setAttribute('accept', 'image/*')
-    input.click()
-    
-    input.onchange = async () => {
-      const file = input.files?.[0]
-      if (!file) return
-      
-      const loadingMsg = ElMessage.info({
-        message: '正在上传图片...',
-        duration: 0
-      })
-
-      try {
-        const formData = new FormData()
-        formData.append('image', file)
-        
-        const res = await fetch(`${import.meta.env.VITE_API_BASE ?? ''}/api/upload`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: formData
-        })
-        const data = await res.json()
-        loadingMsg.close()
-
-        if (!res.ok) throw new Error(data.message || 'Upload failed')
-        
-        const range = editor.getSelection(true)
-        if (!range) {
-          editor.insertEmbed(0, 'image', data.url)
-        } else {
-          editor.insertEmbed(range.index, 'image', data.url)
-        }
-        ElMessage.success('图片上传成功')
-      } catch (e) {
-        loadingMsg.close()
-        ElMessage.error('图片上传失败：' + (e instanceof Error ? e.message : String(e)))
-      }
-    }
-  })
-}
-
-function onEditorChange(html) {
-  form.content = html
-}
 </script>
 
 <template>
   <div class="write">
     <div class="write-header">
       <h1 class="write__title">{{ isEdit ? '编辑文章' : '写文章' }}</h1>
-      <p class="write__hint">正文支持富文本编辑，实时保存，发布即见。</p>
+      <p class="write__hint">正文支持 Markdown 格式，实时预览，发布即见。</p>
     </div>
 
     <el-skeleton :loading="loading" animated>
@@ -182,7 +135,7 @@ function onEditorChange(html) {
         <el-skeleton-item variant="text" style="margin-bottom: 10px" />
         <el-skeleton-item variant="rect" style="height: 300px" />
       </template>
-      
+
       <template #default>
         <el-form
           ref="formRef"
@@ -220,18 +173,18 @@ function onEditorChange(html) {
           <el-form-item prop="content">
             <template #label>
               <div class="content-label">
-                <span>正文内容 (富文本编辑器)</span>
+                <span>正文内容 (Markdown 编辑器)</span>
               </div>
             </template>
             <div class="editor-container">
-              <QuillEditor
-                ref="quillEditor"
-                v-model:content="form.content"
-                content-type="html"
-                :options="editorOptions"
-                @ready="onEditorReady"
-                @update:content="onEditorChange"
-                style="min-height: 400px;"
+              <MdEditor
+                :model-value="form.content"
+                @update:model-value="onContentChange"
+                @onUploadImg="onUploadImg"
+                :preview="true"
+                placeholder="开始你的创作..."
+                :toolbarsExclude="['github', 'htmlPreview', 'catalog']"
+                style="height: 500px;"
               />
             </div>
           </el-form-item>
@@ -244,7 +197,7 @@ function onEditorChange(html) {
                 <el-radio-button label="draft">保存草稿</el-radio-button>
               </el-radio-group>
             </div>
-            
+
             <div class="actions">
               <el-button @click="router.back()">取消</el-button>
               <el-button type="primary" :loading="submitting" @click="onSubmit" size="large">
@@ -299,204 +252,7 @@ function onEditorChange(html) {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  background: var(--surface);
-}
-
-.editor-container :deep(.ql-toolbar) {
-  border: none;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  padding: 0.75rem 1rem;
-}
-
-.editor-container :deep(.ql-toolbar .ql-formats) {
-  margin-right: 0.75rem;
-}
-
-.editor-container :deep(.ql-toolbar button) {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 6px;
-  margin: 0.125rem;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.editor-container :deep(.ql-toolbar button:hover) {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
-}
-
-.editor-container :deep(.ql-toolbar button.ql-active) {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker) {
-  color: var(--text);
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-label) {
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0.25rem 0.5rem;
-  transition: all 0.2s ease;
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-label:hover) {
-  background: var(--accent-soft);
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-options) {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  padding: 0.5rem;
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-item) {
-  color: var(--text);
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-item:hover) {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.editor-container :deep(.ql-toolbar .ql-picker-item.ql-selected) {
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.editor-container :deep(.ql-toolbar .ql-separator) {
-  border-left: 1px solid var(--border);
-  margin: 0 0.5rem;
-}
-
-.editor-container :deep(.ql-editor) {
-  border: none;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 1rem;
-  line-height: 1.8;
-  min-height: 400px;
-  max-height: 600px;
-  overflow-y: auto;
-  padding: 1.5rem;
-}
-
-.editor-container :deep(.ql-editor.ql-blank::before) {
-  color: var(--text-muted);
-  font-style: normal;
-  left: 1.5rem;
-}
-
-.editor-container :deep(.ql-editor h1) {
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 1.5rem 0 0.75rem;
-  line-height: 1.25;
-}
-
-.editor-container :deep(.ql-editor h2) {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 1.25rem 0 0.5rem;
-  line-height: 1.3;
-}
-
-.editor-container :deep(.ql-editor h3) {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 1rem 0 0.5rem;
-  line-height: 1.4;
-}
-
-.editor-container :deep(.ql-editor p) {
-  margin: 0 0 1rem;
-  line-height: 1.8;
-}
-
-.editor-container :deep(.ql-editor ul),
-.editor-container :deep(.ql-editor ol) {
-  margin: 0 0 1rem;
-  padding-left: 2rem;
-}
-
-.editor-container :deep(.ql-editor li) {
-  margin: 0.25rem 0;
-  line-height: 1.6;
-}
-
-.editor-container :deep(.ql-editor blockquote) {
-  border-left: 4px solid var(--accent);
-  margin: 1rem 0;
-  padding-left: 1rem;
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.editor-container :deep(.ql-editor pre) {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-  overflow-x: auto;
-}
-
-.editor-container :deep(.ql-editor code) {
-  background: var(--accent-soft);
-  color: var(--accent);
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
-  font-size: 0.875em;
-}
-
-.editor-container :deep(.ql-editor pre code) {
-  background: transparent;
-  color: var(--text);
-  padding: 0;
-}
-
-.editor-container :deep(.ql-editor a) {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.editor-container :deep(.ql-editor a:hover) {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.editor-container :deep(.ql-editor img) {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  margin: 1rem 0;
-  display: block;
-}
-
-.editor-container :deep(.ql-editor strong) {
-  font-weight: 600;
-}
-
-.editor-container :deep(.ql-editor em) {
-  font-style: italic;
-}
-
-.editor-container :deep(.ql-editor u) {
-  text-decoration: underline;
-}
-
-.editor-container :deep(.ql-editor s) {
-  text-decoration: line-through;
+  width: 100%;
 }
 
 .form-footer {
@@ -533,16 +289,6 @@ function onEditorChange(html) {
 
   .write-form {
     padding: 1.5rem;
-  }
-
-  .editor-container :deep(.ql-toolbar) {
-    padding: 0.5rem;
-    overflow-x: auto;
-  }
-
-  .editor-container :deep(.ql-editor) {
-    padding: 1rem;
-    min-height: 300px;
   }
 
   .form-footer {
