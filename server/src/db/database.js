@@ -103,10 +103,9 @@ export async function initDatabase(databasePath) {
   db = new DatabaseSync(databasePath)
   db.exec(`PRAGMA journal_mode = WAL;`)
   
-  // 【关键修复】：先执行 SCHEMA 创建表
   db.exec(SCHEMA)
+  console.log('Database schema initialized (posts, comments, guestbook, users)')
   
-  // 然后再检查并补全可能缺失的列（针对旧数据迁移）
   ensureColumns(db)
   
   await ensureAdminUser(db)

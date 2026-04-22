@@ -6,11 +6,18 @@ import { initDatabase } from './db/database.js'
 import { createApp } from './app.js'
 import { env } from './config/env.js'
 
-initDatabase(env.databasePath)
+async function start() {
+  await initDatabase(env.databasePath)
 
-const app = createApp()
+  const app = createApp()
 
-app.listen(env.port, () => {
-  console.log(`Server http://localhost:${env.port}`)
-  console.log(`SQLite: ${env.databasePath}`)
+  app.listen(env.port, () => {
+    console.log(`Server http://localhost:${env.port}`)
+    console.log(`SQLite: ${env.databasePath}`)
+  })
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err)
+  process.exit(1)
 })
