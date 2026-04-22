@@ -26,7 +26,7 @@ jobs:
           npm run build
 
       # 4. 部署到服务器
-      - name: Deploy to server
+      - name: Deploy to maodou-blog-api
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -45,7 +45,7 @@ jobs:
             npm install
             
             # 重启后端服务（假设使用PM2管理）
-            pm2 restart server || pm2 start src/index.js --name maodou-blog-api
+            pm2 restart maodou-blog-api || pm2 start src/index.js --name maodou-blog-api
 
       # 5. 上传前端构建产物到服务器
       - name: Upload frontend build
