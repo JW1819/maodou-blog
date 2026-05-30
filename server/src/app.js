@@ -22,7 +22,7 @@ export function createApp() {
     crossOriginResourcePolicy: false, // 允许跨域请求静态资源
   }))
   app.use(cors({ origin: env.clientOrigin }))
-  app.use(express.json())
+  app.use(express.json({ limit: '10mb' }))
   
   // 为静态文件配置CORS
   app.use('/uploads', cors({ origin: env.clientOrigin }), express.static(join(env.databasePath, '../../uploads')))

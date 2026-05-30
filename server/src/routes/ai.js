@@ -121,3 +121,57 @@ aiRouter.post('/image', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' })
   }
 })
+
+// 图生图
+aiRouter.post('/i2i', async (req, res) => {
+  const { prompt, image, model } = req.body
+
+  if (!prompt || typeof prompt !== 'string') {
+    return res.status(400).json({ message: 'prompt is required' })
+  }
+  if (!image || typeof image !== 'string') {
+    return res.status(400).json({ message: 'image (URL or base64 data URL) is required' })
+  }
+
+  const apiKey = process.env.MINIMAX_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ message: 'MINIMAX_API_KEY not configured' })
+  }
+
+  try {
+    const response = await fetch('https://api.minimax.chat/v1/image_generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model || 'image-01',
+        prompt,
+        subject_reference: [{
+          type: 'character',
+          image_file: image,
+        }],
+        response_format: 'url',
+        n: 1,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      return res.status(response.status).json({ message: `MiniMax API error: ${error}` })
+    }
+
+    const data = await response.json()
+    const imageUrl = data.data?.image_urls?.[0]
+
+    if (!imageUrl) {
+      return res.status(500).json({ message: 'No image URL in response' })
+    }
+
+    res.json({ url: imageUrl })
+  } catch (err) {
+    console.error('AI i2i error:', err)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})

@@ -12,16 +12,14 @@ function toggle() {
 <template>
   <div class="ai-chat">
     <AIChatWindow v-if="isOpen" @close="isOpen = false" />
+    <div class="ai-chat__tooltip">{{ isOpen ? '关闭 AI 助手' : '向 AI 提问' }}</div>
     <button
       class="ai-chat__btn"
       :class="{ 'ai-chat__btn--open': isOpen }"
       @click="toggle"
-      :title="isOpen ? '关闭 AI 助手' : '打开 AI 助手'"
     >
-      <svg v-if="!isOpen" width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17v-2H9l4-4 1.5 1.5L14 11l-3 3v-4h2v6h-4z" fill="currentColor"/>
-      </svg>
-      <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <img v-if="!isOpen" src="/image/AI.jpeg" alt="AI" class="ai-chat__icon" />
+      <svg v-else width="26" height="26" viewBox="0 0 24 24" fill="none">
         <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
       </svg>
     </button>
@@ -34,6 +32,31 @@ function toggle() {
   bottom: 24px;
   right: 24px;
   z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-chat__tooltip {
+  position: absolute;
+  right: 70px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  opacity: 0;
+  transform: translateX(10px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.ai-chat:hover .ai-chat__tooltip {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .ai-chat__btn {
@@ -64,5 +87,12 @@ function toggle() {
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
+}
+
+.ai-chat__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
 }
 </style>

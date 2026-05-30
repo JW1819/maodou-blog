@@ -6,6 +6,7 @@ const MAX_MESSAGES = 50
 export function useAIChat() {
   const messages = ref(loadMessages())
   const isLoading = ref(false)
+  let abortController = null
 
   function loadMessages() {
     try {
@@ -36,15 +37,17 @@ export function useAIChat() {
   async function sendMessage(text) {
     if (!text.trim() || isLoading.value) return
 
-    const userMessage = { role: 'user', content: text.trim() }
     addMessage('user', text.trim())
     isLoading.value = true
+    abortController = new AbortController()
+    let aiMsgIndex = -1
 
     try {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: messages.value }),
+        signal: abortController.signal,
       })
 
       if (!response.ok) {
@@ -56,7 +59,7 @@ export function useAIChat() {
       let aiContent = ''
 
       addMessage('assistant', '')
-      const aiMsgIndex = messages.value.length - 1
+      aiMsgIndex = messages.value.length - 1
 
       while (true) {
         const { done, value } = await reader.read()
@@ -86,11 +89,26 @@ export function useAIChat() {
 
       saveMessages()
     } catch (err) {
-      console.error('Chat error:', err)
-      messages.value[aiMsgIndex].content = `抱歉，发生了错误：${err.message}`
+      if (err.name === 'AbortError') {
+        if (aiMsgIndex >= 0) {
+          messages.value[aiMsgIndex].content += '\n[已停止生成]'
+        }
+      } else {
+        console.error('Chat error:', err)
+        if (aiMsgIndex >= 0) {
+          messages.value[aiMsgIndex].content = `抱歉，发生了错误：${err.message}`
+        }
+      }
       saveMessages()
     } finally {
       isLoading.value = false
+      abortController = null
+    }
+  }
+
+  function stopGeneration() {
+    if (abortController) {
+      abortController.abort()
     }
   }
 
@@ -121,6 +139,33 @@ export function useAIChat() {
     }
   }
 
+  async function generateImageWithRef(prompt, imageDataUrl) {
+    if (!prompt.trim() || !imageDataUrl || isLoading.value) return
+
+    addMessage('user', `[图生图] ${prompt.trim()}`)
+    isLoading.value = true
+
+    try {
+      const response = await fetch('/api/ai/i2i', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, image: imageDataUrl }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      addMessage('assistant', `[图片](${data.url})`)
+    } catch (err) {
+      console.error('Image i2i error:', err)
+      addMessage('assistant', `抱歉，发生了错误：${err.message}`)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
   function clearMessages() {
     messages.value = []
     localStorage.removeItem(STORAGE_KEY)
@@ -130,7 +175,9 @@ export function useAIChat() {
     messages,
     isLoading,
     sendMessage,
+    stopGeneration,
     generateImage,
+    generateImageWithRef,
     clearMessages,
   }
 }
