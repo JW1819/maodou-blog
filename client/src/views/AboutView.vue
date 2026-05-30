@@ -31,7 +31,7 @@ const daysRunning = computed(() => {
 
     <section class="about__profile">
       <div class="about__avatar-wrap">
-        <img src="/image/user.png" alt="头像" class="about__avatar" />
+        <img src="/image/user.jpg" alt="头像" class="about__avatar" />
       </div>
       <div class="about__profile-info">
         <h2 class="about__name">Nic</h2>

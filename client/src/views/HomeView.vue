@@ -24,7 +24,7 @@ onMounted(async () => {
   <div class="home">
     <section class="hero">
       <div class="hero__avatar-wrap">
-        <img src="/image/user.png" alt="头像" class="hero__avatar" />
+        <img src="/image/user.jpg" alt="头像" class="hero__avatar" />
       </div>
       <div class="hero__content">
         <p class="hero__eyebrow">Hello, World</p>
