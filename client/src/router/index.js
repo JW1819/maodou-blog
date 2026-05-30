@@ -7,6 +7,8 @@ import AboutView from '../views/AboutView.vue'
 import LoginView from '../views/LoginView.vue'
 import ArchivesView from '../views/ArchivesView.vue'
 import GuestbookView from '../views/GuestbookView.vue'
+import AIView from '../views/AIView.vue'
+import BirthdayView from '../views/BirthdayView.vue'
 import { auth } from '../stores/auth'
 
 export const router = createRouter({
@@ -20,6 +22,8 @@ export const router = createRouter({
     { path: '/chenjiwei-entrance', name: 'login', component: LoginView, meta: { title: '登录' } },
     { path: '/archives', name: 'archives', component: ArchivesView, meta: { title: '归档' } },
     { path: '/guestbook', name: 'guestbook', component: GuestbookView, meta: { title: '留言板' } },
+    { path: '/ai', name: 'ai', component: AIView, meta: { title: 'AI 助手' } },
+    { path: '/birthday', name: 'birthday', component: BirthdayView, meta: { title: '生日快乐' } },
     { path: '/about', name: 'about', component: AboutView, meta: { title: '关于' } },
   ],
   scrollBehavior(to, _from, saved) {

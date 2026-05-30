@@ -166,6 +166,27 @@ export function useAIChat() {
     }
   }
 
+  async function textToSpeech(text, model, voiceId) {
+    if (!text.trim()) return null
+
+    try {
+      const response = await fetch('/api/ai/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, model, voice_id: voiceId }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`)
+      }
+
+      return await response.blob()
+    } catch (err) {
+      console.error('TTS error:', err)
+      return null
+    }
+  }
+
   function clearMessages() {
     messages.value = []
     localStorage.removeItem(STORAGE_KEY)
@@ -178,6 +199,7 @@ export function useAIChat() {
     stopGeneration,
     generateImage,
     generateImageWithRef,
+    textToSpeech,
     clearMessages,
   }
 }

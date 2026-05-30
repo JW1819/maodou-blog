@@ -175,3 +175,166 @@ aiRouter.post('/i2i', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' })
   }
 })
+
+// 语音合成
+aiRouter.post('/tts', async (req, res) => {
+  const { text, model, voice_id, speed } = req.body
+
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ message: 'text is required' })
+  }
+
+  const apiKey = process.env.MINIMAX_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ message: 'MINIMAX_API_KEY not configured' })
+  }
+
+  try {
+    const response = await fetch('https://api.minimaxi.com/v1/t2a_v2', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model || 'speech-02-hd',
+        text,
+        stream: false,
+        voice_setting: {
+          voice_id: voice_id || 'male-qn-qingse',
+          speed: speed || 1,
+        },
+        audio_setting: {
+          sample_rate: 32000,
+          bitrate: 128000,
+          format: 'mp3',
+        },
+        output_format: 'hex',
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return res.status(response.status).json({ message: error.base_resp?.status_msg || 'TTS error' })
+    }
+
+    const data = await response.json()
+
+    if (!data.data?.audio) {
+      return res.status(500).json({ message: 'No audio in response' })
+    }
+
+    // 将 hex 转换为二进制
+    const audioBuffer = Buffer.from(data.data.audio, 'hex')
+
+    res.setHeader('Content-Type', 'audio/mpeg')
+    res.setHeader('Content-Length', audioBuffer.length)
+    res.send(audioBuffer)
+  } catch (err) {
+    console.error('AI TTS error:', err)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 歌词生成
+aiRouter.post('/lyrics', async (req, res) => {
+  const { theme, enhance } = req.body
+
+  if (!theme || typeof theme !== 'string') {
+    return res.status(400).json({ message: 'theme is required' })
+  }
+
+  const apiKey = process.env.MINIMAX_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ message: 'MINIMAX_API_KEY not configured' })
+  }
+
+  try {
+    const response = await fetch('https://api.minimaxi.com/v1/lyrics_generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        mode: 'write_full_song',
+        prompt: theme,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return res.status(response.status).json({ message: error.base_resp?.status_msg || 'Lyrics API error' })
+    }
+
+    const data = await response.json()
+
+    if (data.base_resp?.status_code !== 0) {
+      return res.status(500).json({ message: data.base_resp?.status_msg || 'Lyrics generation failed' })
+    }
+
+    res.json({
+      title: data.song_title || '',
+      lyrics: data.lyrics || '',
+      style: data.style_tags || '',
+    })
+  } catch (err) {
+    console.error('AI lyrics error:', err)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})
+
+// 音乐生成
+aiRouter.post('/music', async (req, res) => {
+  const { lyrics, prompt, model } = req.body
+
+  if (!lyrics || typeof lyrics !== 'string') {
+    return res.status(400).json({ message: 'lyrics is required' })
+  }
+
+  const apiKey = process.env.MINIMAX_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ message: 'MINIMAX_API_KEY not configured' })
+  }
+
+  try {
+    const response = await fetch('https://api.minimaxi.com/v1/music_generation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model || 'music-2.6',
+        prompt: prompt || '流行音乐，温暖治愈，情感丰富',
+        lyrics,
+        audio_setting: {
+          sample_rate: 44100,
+          bitrate: 256000,
+          format: 'mp3',
+        },
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return res.status(response.status).json({ message: error.base_resp?.status_msg || 'Music API error' })
+    }
+
+    const data = await response.json()
+
+    if (!data.data?.audio) {
+      return res.status(500).json({ message: 'No audio in response' })
+    }
+
+    // 将 hex 转换为二进制
+    const audioBuffer = Buffer.from(data.data.audio, 'hex')
+
+    res.setHeader('Content-Type', 'audio/mpeg')
+    res.setHeader('Content-Length', audioBuffer.length)
+    res.send(audioBuffer)
+  } catch (err) {
+    console.error('AI music error:', err)
+    res.status(500).json({ message: 'Internal server error' })
+  }
+})

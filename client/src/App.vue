@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { auth } from './stores/auth'
 import { categoriesStore } from './stores/categories'
-import AIChatButton from './components/AIChatButton.vue'
+import BirthdayButton from './components/BirthdayButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,6 +16,7 @@ const activePosts = computed(() => route.name === 'posts' || route.name === 'pos
 const activeArchives = computed(() => route.name === 'archives')
 const activeGuestbook = computed(() => route.name === 'guestbook')
 const activeWrite = computed(() => route.name === 'write')
+const activeAI = computed(() => route.name === 'ai')
 const activeAbout = computed(() => route.name === 'about')
 
 const searchQuery = ref('')
@@ -76,6 +77,7 @@ onMounted(async () => {
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activePosts }" to="/posts">文章</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeArchives }" to="/archives">归档</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeGuestbook }" to="/guestbook">留言板</RouterLink>
+            <RouterLink class="nav__link" :class="{ 'nav__link--active': activeAI }" to="/ai">AI 助手</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" class="nav__link" :class="{ 'nav__link--active': activeWrite }" to="/write">写文章</RouterLink>
             <RouterLink class="nav__link" :class="{ 'nav__link--active': activeAbout }" to="/about">关于</RouterLink>
             
@@ -112,7 +114,7 @@ onMounted(async () => {
       </div>
     </footer>
 
-    <AIChatButton />
+    <BirthdayButton />
   </div>
 </template>
 
