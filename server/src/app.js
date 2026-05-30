@@ -6,6 +6,7 @@ import { rateLimit } from 'express-rate-limit'
 import { join } from 'path'
 import { env } from './config/env.js'
 import { postsRouter } from './routes/posts.js'
+import { aiRouter } from './routes/ai.js'
 import * as categories from './controllers/categoriesController.js'
 import * as comments from './controllers/commentsController.js'
 import * as guestbook from './controllers/guestbookController.js'
@@ -102,6 +103,8 @@ export function createApp() {
   app.get('/api/guestbook', guestbook.list)
   app.post('/api/guestbook', guestbookLimiter, guestbook.create)
   app.delete('/api/guestbook/:id', authMiddleware, guestbook.remove)
+
+  app.use('/api/ai', aiRouter)
 
   app.use((_req, res) => {
     res.status(404).json({ message: 'Not Found' })

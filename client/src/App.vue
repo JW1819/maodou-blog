@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { auth } from './stores/auth'
 import { categoriesStore } from './stores/categories'
+import AIChatButton from './components/AIChatButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,6 +111,8 @@ onMounted(async () => {
         </div>
       </div>
     </footer>
+
+    <AIChatButton />
   </div>
 </template>
 
